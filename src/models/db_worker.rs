@@ -1,10 +1,17 @@
-use crate::traits::auth::Auth;
+use crate::traits::auth_repository::AuthRepository;
+use crate::traits::data_base::DataBase;
 use crate::traits::logs_repository::LogsRepository;
 
 pub struct DBWorker<A, R>
-where A: Auth,
+where A: AuthRepository,
     R: LogsRepository,
 {
     auth: A,
     logs: R
 }
+
+impl<A, R> AuthRepository for DBWorker<A, R> {}
+
+impl<A, R> LogsRepository for DBWorker<A, R> {}
+
+impl<A, R> DataBase for DBWorker<A, R> {}

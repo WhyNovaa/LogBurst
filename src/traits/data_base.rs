@@ -1,10 +1,6 @@
-trait Save {
+use crate::traits::auth_repository::AuthRepository;
+use crate::traits::logs_repository::LogsRepository;
 
-}
-trait Get {
-
-}
-
-pub trait DataBase: Save + Get {
+pub trait DataBase: AuthRepository + LogsRepository {
 
 }
