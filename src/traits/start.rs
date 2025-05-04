@@ -1,4 +1,6 @@
+use async_trait::async_trait;
+use crate::traits::new::New;
+
 pub trait Start {
-    fn new() -> Self;
-    fn start(self);
+    async fn start(self);
 }

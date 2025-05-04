@@ -1,3 +1,2 @@
-pub struct PGPool {
-
+pub struct AuthPool {
 }
