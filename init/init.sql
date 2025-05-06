@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS Users
+(
+    Id SERIAL PRIMARY KEY,
+    login VARCHAR(60) NOT NULL,
+    hashed_password VARCHAR(256) NOT NULL
+)
