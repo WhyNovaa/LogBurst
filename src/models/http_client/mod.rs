@@ -6,10 +6,10 @@ use axum::Router;
 use tokio::sync::{mpsc, oneshot};
 use crate::models::http_client::routes::auth_routes;
 use crate::models::log::Log;
-use crate::traits::new::New;
+use crate::traits::client::Client;
 use crate::traits::start::Start;
 
-mod api;
+pub mod api;
 mod routes;
 
 pub struct HTTPClient {
@@ -19,8 +19,10 @@ pub struct HTTPClient {
 }
 
 
-impl New for HTTPClient {
+impl Client for HTTPClient {
     fn new(log_sender: mpsc::Sender<(Log, oneshot::Sender<Response>)>) -> Self {
+        log::info!("Creating HTTPClient");
+
         let router = Router::new()
             .merge(auth_routes());
 
@@ -38,6 +40,8 @@ impl New for HTTPClient {
 
 impl Start for HTTPClient {
     async fn start(self) {
+        log::info!("Starting HTTPClient");
+
         let tcp_listener = tokio::net::TcpListener::bind(self.addr).await.unwrap();
 
         axum::serve(tcp_listener, self.router.into_make_service()).await.unwrap();

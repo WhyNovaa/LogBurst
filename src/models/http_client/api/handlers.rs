@@ -28,7 +28,24 @@ pub mod auth {
         exp: usize,
     }
 
-    pub fn create_jwt(user_id: &str) -> anyhow::Result<String> {
+    #[derive(Debug, Deserialize)]
+    pub struct RegPayload {
+        pub login: String,
+        pub password: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct AuthPayload {
+        pub login: String,
+        pub password: String,
+    }
+
+    #[derive(Debug, Serialize)]
+    pub struct AuthBody {
+        jwt: String,
+    }
+
+    pub fn create_jwt(user_id: u32) -> anyhow::Result<String> {
         create_jwt_with_key(user_id, &SECRET)
     }
 
@@ -36,7 +53,7 @@ pub mod auth {
         validate_jwt_with_key(token, &SECRET)
     }
 
-    fn create_jwt_with_key(user_id: &str, key: &str) -> anyhow::Result<String> {
+    fn create_jwt_with_key(user_id: u32, key: &str) -> anyhow::Result<String> {
         let claims = Claims {
             sub: user_id.to_string(),
             exp: (SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 3600) as usize,
@@ -53,16 +70,34 @@ pub mod auth {
         Ok(decode::<Claims>(token, &decoding_key, &validation)?.claims)
     }
 
+    pub async fn login(Json(payload): Json<AuthPayload>) -> Result<Json<AuthBody>, AuthError> {
+        log::info!("Login endpoint {:?}", payload);
 
-    pub async fn login() {
-        println!("login");
+        if payload.login.is_empty() || payload.password.is_empty() {
+            return Err(AuthError::MissingCredentials)
+        }
+
+        if payload.login != "Admin" && payload.password != "Admin" {
+            return Err(AuthError::WrongCredentials)
+        }
+
+        let jwt = create_jwt(1).unwrap(); //remove unwrap
+
+        let body = AuthBody { jwt };
+
+        Ok(Json(body))
     }
-    pub async fn registration() {
-        println!("reg");
+    pub async fn registration(payload: Json<RegPayload>)  {
+        log::info!("Registration endpoint: {:?}", payload);
+        // todo!
+    }
+
+    pub async fn protected(claims: Claims) -> Result<String, AuthError> {
+        Ok(format!("Smth {:?}", claims))
     }
 
     #[derive(Debug)]
-    enum AuthError {
+    pub enum AuthError {
         WrongCredentials,
         MissingCredentials,
         TokenCreation,
@@ -94,6 +129,7 @@ pub mod auth {
                 .extract::<TypedHeader<Authorization<Bearer>>>()
                 .await
                 .map_err(|_| AuthError::InvalidToken)?;
+
             let claims = validate_jwt(bearer.token())
                 .map_err(|_| AuthError::InvalidToken)?;
 
@@ -106,13 +142,13 @@ pub mod auth {
 
     #[cfg(test)]
     mod test {
-        use crate::models::http_client::api::handlers::auth::{create_jwt, create_jwt_with_key, validate_jwt, validate_jwt_with_key, Claims};
+        use crate::models::http_client::api::handlers::auth::{create_jwt_with_key, validate_jwt_with_key};
 
         #[tokio::test]
         async fn jwt_correct_validation() {
             let key = "Test";
 
-            let jwt = create_jwt_with_key("1", key).unwrap();
+            let jwt = create_jwt_with_key(1, key).unwrap();
 
             let res = validate_jwt_with_key(&jwt, key);
 
@@ -124,11 +160,11 @@ pub mod auth {
             let key = "Test";
             let invalid_key = "Invalid";
 
-            let jwt = create_jwt_with_key("1", key).unwrap();
+            let jwt = create_jwt_with_key(1, key).unwrap();
 
             let res = validate_jwt_with_key(&jwt, invalid_key);
 
-            assert!(res.is_ok());
+            assert!(res.is_err());
         }
     }
 }
