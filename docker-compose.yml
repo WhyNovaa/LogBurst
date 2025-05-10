@@ -1,5 +1,6 @@
 services:
   log-service:
+    container_name: log-service
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,6 +10,7 @@ services:
       - pg
 
   pg:
+    container_name: pg
     image: postgres:latest
     restart: always
     env_file:

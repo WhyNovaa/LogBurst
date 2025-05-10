@@ -1,5 +1,9 @@
 use std::env;
-use sqlx::PgPool;
+use axum::http::StatusCode;
+use axum::Json;
+use axum::response::{IntoResponse, Response};
+use serde_json::json;
+use sqlx::{Error, PgPool};
 use thiserror::Error;
 use crate::db::pg::crypto::hash;
 use crate::models::http_client::api::handlers::auth::RegPayload;
@@ -14,6 +18,22 @@ pub struct AuthPool {
 pub enum AuthRepositoryError {
     #[error("")]
     SqlxError(#[from] sqlx::Error)
+}
+
+impl IntoResponse for AuthRepositoryError {
+    fn into_response(self) -> Response {
+        let (status, message) = match &self {
+            AuthRepositoryError::SqlxError(sqlx::Error::RowNotFound) => {
+                (StatusCode::NOT_FOUND, "User not found")
+            }
+            AuthRepositoryError::SqlxError(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+            }
+        };
+
+        let body = Json(json!({ "error": message }));
+        (status, body).into_response()
+    }
 }
 
 impl AsyncNew for AuthPool {

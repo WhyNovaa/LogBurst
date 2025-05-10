@@ -1,6 +1,14 @@
 CREATE TABLE IF NOT EXISTS Users
 (
-    Id SERIAL PRIMARY KEY,
-    login VARCHAR(60) NOT NULL,
-    hashed_password VARCHAR(256) NOT NULL
+    id SERIAL PRIMARY KEY,
+    login VARCHAR(60) NOT NULL UNIQUE,
+    hashed_password VARCHAR(256) NOT NULL,
+    role_id INT REFERENCES Roles(id)
+);
+
+CREATE TABLE IF NOT EXISTS Roles
+(
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(20) NOT NULL UNIQUE
 )
+

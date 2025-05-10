@@ -1,9 +1,12 @@
 use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::Arc;
+use axum::extract::State;
 use axum::response::Response;
 use axum::Router;
 use tokio::sync::{mpsc, oneshot};
+use crate::models::app::{AuthCommandSender, LogSender};
 use crate::models::http_client::routes::auth_routes;
 use crate::models::log::Log;
 use crate::traits::client::Client;
@@ -14,17 +17,16 @@ mod routes;
 
 pub struct HTTPClient {
     router: Router,
-    log_sender: mpsc::Sender<(Log, oneshot::Sender<Response>)>,
     addr: SocketAddr,
 }
 
 
 impl Client for HTTPClient {
-    fn new(log_sender: mpsc::Sender<(Log, oneshot::Sender<Response>)>) -> Self {
+    fn new(auth_command_sender: AuthCommandSender, _log_sender: LogSender) -> Self {
         log::info!("Creating HTTPClient");
 
         let router = Router::new()
-            .merge(auth_routes());
+            .merge(auth_routes(auth_command_sender));
 
         let url = env::var("URL").expect("URL not found in .env file");
 
@@ -32,7 +34,6 @@ impl Client for HTTPClient {
 
         Self {
             router,
-            log_sender,
             addr,
         }
     }

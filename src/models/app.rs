@@ -1,11 +1,14 @@
 use axum::response::Response;
 use sqlx::Database;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
+use crate::models::http_client::api::handlers::auth_command::AuthCommand;
 use crate::models::log::Log;
 use crate::traits::client::Client;
 use crate::traits::data_base::DataBase;
 use crate::traits::start::Start;
 
+pub type AuthCommandSender = mpsc::Sender<(AuthCommand, oneshot::Sender<Response>)>;
+pub type LogSender = mpsc::Sender<(Log, oneshot::Sender<Response>)>;
 /*pub struct App<C, D>
 where
     C: Client,
