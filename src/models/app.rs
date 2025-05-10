@@ -8,26 +8,25 @@ use crate::traits::data_base::DataBase;
 use crate::traits::start::Start;
 
 pub type AuthCommandSender = mpsc::Sender<(AuthCommand, oneshot::Sender<Response>)>;
+pub type AuthCommandReceiver = mpsc::Receiver<(AuthCommand, oneshot::Sender<Response>)>;
+
 pub type LogSender = mpsc::Sender<(Log, oneshot::Sender<Response>)>;
-/*pub struct App<C, D>
-where
-    C: Client,
-    D: Start + DataBase,
-{
+pub type LogReceiver = mpsc::Receiver<(Log, oneshot::Sender<Response>)>;
+
+
+const BUFFER_SIZE: usize = 100;
+
+pub struct App<C: Client, D: DataBase> {
     http_client: C,
     db: D,
 }
 
-impl<C, D> App<C, D>
-where
-    C: Client,
-    D: Start + DataBase,
-{
+impl<C: Client, D: DataBase> App<C, D> {
     pub async fn new() -> Self {
-        let (s, r) = tokio::sync::mpsc::channel::<(Log, oneshot::Sender<Response>)>(100);
+        let (c_s, c_r) = mpsc::channel::<(AuthCommand, oneshot::Sender<Response>)>(BUFFER_SIZE);
 
-        let http_client = C::new(s);
-        let db = <D as Database>::new(r);
+        let http_client = C::new(c_s);
+        let db = D::new(c_r).await;
 
         Self {
             http_client,
@@ -35,7 +34,14 @@ where
         }
     }
 
-    pub fn start(self) {
+    pub async fn start(self) {
+        let client_task = tokio::spawn(async move {
+            self.http_client.start().await;
+        });
+        let db_task = tokio::spawn(async move {
+            self.db.start().await;
+        });
 
+        let (_db_res, _client_res) = tokio::join!(db_task, client_task);
     }
-}*/
+}

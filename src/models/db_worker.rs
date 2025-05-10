@@ -1,21 +1,31 @@
+use async_trait::async_trait;
+use crate::models::app::AuthCommandReceiver;
 use crate::traits::auth_repository::AuthRepository;
-use crate::traits::data_base::DataBase;
 use crate::traits::logs_repository::LogsRepository;
+use crate::traits::data_base::DataBase;
+use crate::traits::start::Start;
 
-/*pub struct DBWorker<A, R>
-where A: AuthRepository,
-    R: LogsRepository,
-{
+pub struct DBWorker<A: AuthRepository, L: LogsRepository> {
     auth: A,
-    logs: R
+    logs: L
 }
 
-impl<A: AuthRepository, R: LogsRepository> AuthRepository for DBWorker<A, R> {
-    async fn new() -> Self {
-        todo!()
+#[async_trait]
+impl<A: AuthRepository, L: LogsRepository> Start for DBWorker<A, L> {
+    async fn start(self) {
+        tokio::spawn(async move { self.auth.start().await; });
     }
 }
 
-impl<A, R> LogsRepository for DBWorker<A, R> {}
+impl<A: AuthRepository, L: LogsRepository> DataBase for DBWorker<A, L> {
+    async fn new(auth_command_receiver: AuthCommandReceiver) -> Self {
+        let auth = A::new(auth_command_receiver).await;
 
-impl<A, R> DataBase for DBWorker<A, R> {}*/
+        let logs = L::new();
+
+        Self {
+            auth,
+            logs,
+        }
+    }
+}

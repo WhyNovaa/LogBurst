@@ -2,6 +2,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use async_trait::async_trait;
 use axum::extract::State;
 use axum::response::Response;
 use axum::Router;
@@ -22,7 +23,9 @@ pub struct HTTPClient {
 
 
 impl Client for HTTPClient {
-    fn new(auth_command_sender: AuthCommandSender, _log_sender: LogSender) -> Self {
+    fn new(
+        auth_command_sender: AuthCommandSender,
+    ) -> Self {
         log::info!("Creating HTTPClient");
 
         let router = Router::new()
@@ -39,6 +42,7 @@ impl Client for HTTPClient {
     }
 }
 
+#[async_trait]
 impl Start for HTTPClient {
     async fn start(self) {
         log::info!("Starting HTTPClient");

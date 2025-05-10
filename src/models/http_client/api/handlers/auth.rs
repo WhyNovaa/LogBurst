@@ -15,6 +15,7 @@ use axum_extra::{
 };
 use serde_json::json;
 use crate::models::app::AuthCommandSender;
+use crate::models::http_client::api::handlers::auth_command::AuthCommand;
 
 /// Key for encoding/decoding
 static SECRET: Lazy<String> = Lazy::new(|| {
@@ -75,7 +76,7 @@ fn validate_jwt_with_key(token: &str, key: &str) -> anyhow::Result<Claims> {
 }
 
 pub async fn login(
-    State(_command_sender): State<AuthCommandSender>,
+    State(command_sender): State<AuthCommandSender>,
     Json(payload): Json<AuthPayload>
 ) -> Result<Json<AuthBody>, AuthError> {
     log::info!("Login endpoint {:?}", payload);
@@ -95,12 +96,14 @@ pub async fn login(
     Ok(Json(body))
 }
 pub async fn registration(
-    State(_command_sender): State<AuthCommandSender>,
-    payload: Json<RegPayload>,
+    State(command_sender): State<AuthCommandSender>,
+    Json(payload): Json<RegPayload>,
 )  {
-
     log::info!("Registration endpoint: {:?}", payload);
-    // todo!
+    let command = AuthCommand::CreateUser(payload);
+
+    let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
+    command_sender.send((command, one_s)).await.unwrap();
 }
 
 pub async fn protected(claims: Claims) -> Result<String, AuthError> {

@@ -1,17 +1,22 @@
 use std::env;
+use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum::Json;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use sqlx::{Error, PgPool};
 use thiserror::Error;
+use tokio::sync::oneshot::Sender;
 use crate::db::pg::crypto::hash;
+use crate::models::app::AuthCommandReceiver;
 use crate::models::http_client::api::handlers::auth::RegPayload;
+use crate::models::http_client::api::handlers::auth_command::AuthCommand;
 use crate::traits::auth_repository::AuthRepository;
-use crate::traits::new::AsyncNew;
+use crate::traits::start::Start;
 
 pub struct AuthPool {
     pool: PgPool,
+    auth_command_receiver: AuthCommandReceiver,
 }
 
 #[derive(Debug, Error)]
@@ -36,8 +41,21 @@ impl IntoResponse for AuthRepositoryError {
     }
 }
 
-impl AsyncNew for AuthPool {
-    async fn new() -> Self {
+#[async_trait]
+impl Start for AuthPool {
+    async fn start(mut self) {
+        loop {
+           if let Some((command, response_sender)) = self.auth_command_receiver.recv().await {
+               println!("Auth: {:?}", command);
+           }
+        }
+    }
+}
+
+impl AuthRepository for AuthPool {
+    type Error = AuthRepositoryError;
+
+    async fn new(auth_command_receiver: AuthCommandReceiver) -> Self {
         let user = env::var("POSTGRES_USER").expect("POSTGRES_USER not found in .env file");
         let password =
             env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD not found in .env file");
@@ -49,12 +67,12 @@ impl AsyncNew for AuthPool {
             .await
             .expect("Connection error");
 
-        Self { pool }
+        Self {
+            pool,
+            auth_command_receiver,
+        }
     }
-}
 
-impl AuthRepository for AuthPool {
-    type Error = AuthRepositoryError;
     async fn create_user(&self, payload: RegPayload) -> Result<(), Self::Error> {
         let req = "INSERT INTO Users (login, hashed_password) VALUES ($1, $2)";
 

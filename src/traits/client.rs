@@ -4,6 +4,6 @@ use crate::models::app::{AuthCommandSender, LogSender};
 use crate::models::log::Log;
 use crate::traits::start::Start;
 
-pub trait Client: Start {
-    fn new(auth_command_sender: AuthCommandSender, log_sender: LogSender) -> Self;
+pub trait Client: Start + Send + 'static {
+    fn new(auth_command_sender: AuthCommandSender) -> Self;
 }

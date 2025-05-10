@@ -1,10 +1,6 @@
-use axum::response::Response;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::oneshot::Sender;
-use crate::models::log::Log;
-use crate::traits::auth_repository::AuthRepository;
-use crate::traits::logs_repository::LogsRepository;
+use crate::models::app::AuthCommandReceiver;
+use crate::traits::start::Start;
 
-pub trait DataBase: AuthRepository + LogsRepository {
-    fn new(receiver: Receiver<(Log, Sender<Response>)>) -> Self;
+pub trait DataBase: Start + Send + 'static {
+    async fn new(auth_command_receiver: AuthCommandReceiver) -> Self;
 }

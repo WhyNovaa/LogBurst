@@ -10,5 +10,10 @@ CREATE TABLE IF NOT EXISTS Roles
 (
     id SERIAL PRIMARY KEY,
     name VARCHAR(20) NOT NULL UNIQUE
-)
+);
+
+INSERT INTO Roles (name)
+VALUES ('Admin'),
+    ('User')
+ON CONFLICT DO NOTHING;
 
