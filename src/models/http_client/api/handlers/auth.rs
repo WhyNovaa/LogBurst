@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
 use axum::extract::{FromRequest, FromRequestParts, Request, State};
 use axum::http::request::Parts;
@@ -13,7 +14,9 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use serde::de::Unexpected::Str;
 use serde_json::json;
+use sqlx::FromRow;
 use crate::models::app::AuthCommandSender;
 use crate::models::http_client::api::handlers::auth_command::AuthCommand;
 
@@ -25,7 +28,8 @@ static SECRET: Lazy<String> = Lazy::new(|| {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    sub: String,
+    login: String,
+    role: Role,
     exp: usize,
 }
 
@@ -46,19 +50,53 @@ pub struct AuthBody {
     jwt: String,
 }
 
-pub fn create_jwt(user_id: u32) -> anyhow::Result<String> {
-    create_jwt_with_key(user_id, &SECRET)
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Role {
+    User,
+    Admin,
+}
+impl Display for Role {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let res = match self {
+            Role::User => "User",
+            Role::Admin => "Admin",
+        };
+
+        write!(f, "{}", res)
+    }
+}
+
+impl From<String> for Role {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "Admin" => Role::Admin,
+            _ => Role::User,
+        }
+    }
+}
+impl Role {
+    pub fn id(&self) -> i32 {
+        match self {
+            Role::User => 1,
+            Role::Admin => 2,
+        }
+    }
+}
+
+pub fn create_jwt(login: String, role: Role) -> anyhow::Result<String> {
+    create_jwt_with_key(login, role, &SECRET)
 }
 
 pub fn validate_jwt(token: &str) -> anyhow::Result<Claims> {
     validate_jwt_with_key(token, &SECRET)
 }
 
-fn create_jwt_with_key(user_id: u32, key: &str) -> anyhow::Result<String> {
-    log::info!("Creating jwt fot user_id {user_id}");
+fn create_jwt_with_key(login: String, role: Role, key: &str) -> anyhow::Result<String> {
+    log::info!("Creating jwt fot user: {login}");
 
     let claims = Claims {
-        sub: user_id.to_string(),
+        login,
+        role,
         exp: (SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 3600) as usize,
     };
     let header = Header::new(Algorithm::HS256);
@@ -78,36 +116,60 @@ fn validate_jwt_with_key(token: &str, key: &str) -> anyhow::Result<Claims> {
 pub async fn login(
     State(command_sender): State<AuthCommandSender>,
     Json(payload): Json<AuthPayload>
-) -> Result<Json<AuthBody>, AuthError> {
+) -> Response {
     log::info!("Login endpoint {:?}", payload);
 
     if payload.login.is_empty() || payload.password.is_empty() {
-        return Err(AuthError::MissingCredentials)
+        return AuthError::MissingCredentials.into_response()
     }
 
-    if payload.login != "Admin" && payload.password != "Admin" {
-        return Err(AuthError::WrongCredentials)
-    }
+    let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
 
-    let jwt = create_jwt(1).unwrap(); //remove unwrap
+    let command = AuthCommand::Login { login: payload.login, password: payload.password };
 
-    let body = AuthBody { jwt };
-
-    Ok(Json(body))
+    send_command(&command_sender, command).await
 }
+
 pub async fn registration(
     State(command_sender): State<AuthCommandSender>,
     Json(payload): Json<RegPayload>,
-)  {
+) -> Response {
     log::info!("Registration endpoint: {:?}", payload);
-    let command = AuthCommand::CreateUser(payload);
 
-    let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
-    command_sender.send((command, one_s)).await.unwrap();
+    let command = AuthCommand::CreateUser {
+        login: payload.login,
+        password: payload.password,
+        // default user's role is 'User'
+        role: Role::User,
+    };
+
+    send_command(&command_sender, command).await
 }
 
 pub async fn protected(claims: Claims) -> Result<String, AuthError> {
     Ok(format!("Smth {:?}", claims))
+}
+
+async fn send_command(command_sender: &AuthCommandSender, command: AuthCommand) -> Response {
+    let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
+
+    if let Err(e) = command_sender.send((command, one_s)).await {
+        log::error!("Failed to send command: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "internal error"})),
+        )
+            .into_response();
+    }
+
+    one_r.await.unwrap_or_else(|e| {
+        log::error!("oneshot receive failed: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "internal error"})),
+        )
+            .into_response()
+    })
 }
 
 #[derive(Debug)]
@@ -116,6 +178,7 @@ pub enum AuthError {
     MissingCredentials,
     TokenCreation,
     InvalidToken,
+    InternalServerError,
 }
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
@@ -124,6 +187,7 @@ impl IntoResponse for AuthError {
             AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
             AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
             AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
+            AuthError::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
         };
         let body = Json(json!({
             "error": error_message,
@@ -160,9 +224,9 @@ mod test {
 
     #[tokio::test]
     async fn jwt_correct_validation() {
-        let key = "Test";
+        let (login, role, key) = ("login".to_string(), Role::User, "key");
 
-        let jwt = create_jwt_with_key(1, key).unwrap();
+        let jwt = create_jwt_with_key(login, role, key).unwrap();
 
         let res = validate_jwt_with_key(&jwt, key);
 
@@ -171,10 +235,10 @@ mod test {
 
     #[tokio::test]
     async fn jwt_incorrect_validation() {
-        let key = "Test";
-        let invalid_key = "Invalid";
+        let (login, role) = ("login".to_string(), Role::User);
+        let (key, invalid_key) = ("key", "invalid_key");
 
-        let jwt = create_jwt_with_key(1, key).unwrap();
+        let jwt = create_jwt_with_key(login, role,  key).unwrap();
 
         let res = validate_jwt_with_key(&jwt, invalid_key);
 

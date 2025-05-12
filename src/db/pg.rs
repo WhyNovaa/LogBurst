@@ -5,12 +5,14 @@ use axum::Json;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 use sqlx::{Error, PgPool};
+use sqlx::error::ErrorKind::UniqueViolation;
 use thiserror::Error;
 use tokio::sync::oneshot::Sender;
 use crate::db::pg::crypto::hash;
 use crate::models::app::AuthCommandReceiver;
-use crate::models::http_client::api::handlers::auth::RegPayload;
+use crate::models::http_client::api::handlers::auth::{create_jwt, AuthError, RegPayload, Role};
 use crate::models::http_client::api::handlers::auth_command::AuthCommand;
+use crate::models::user::{DbUser, User};
 use crate::traits::auth_repository::AuthRepository;
 use crate::traits::start::Start;
 
@@ -30,9 +32,12 @@ impl IntoResponse for AuthRepositoryError {
         let (status, message) = match &self {
             AuthRepositoryError::SqlxError(sqlx::Error::RowNotFound) => {
                 (StatusCode::NOT_FOUND, "User not found")
-            }
+            },
+            AuthRepositoryError::SqlxError(sqlx::Error::Database(e)) if e.kind() == UniqueViolation => {
+                (StatusCode::BAD_REQUEST, "User with this login already exists")
+            },
             AuthRepositoryError::SqlxError(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
             }
         };
 
@@ -46,7 +51,11 @@ impl Start for AuthPool {
     async fn start(mut self) {
         loop {
            if let Some((command, response_sender)) = self.auth_command_receiver.recv().await {
-               println!("Auth: {:?}", command);
+               log::info!("Auth: {:?}", command);
+
+               let response = self.handle_command(command).await;
+
+               response_sender.send(response).unwrap();
            }
         }
     }
@@ -73,16 +82,82 @@ impl AuthRepository for AuthPool {
         }
     }
 
-    async fn create_user(&self, payload: RegPayload) -> Result<(), Self::Error> {
-        let req = "INSERT INTO Users (login, hashed_password) VALUES ($1, $2)";
+    async fn create_user(&self, login: &str, password: &str, role_id: i32) -> Result<(), Self::Error> {
+        let req = "INSERT INTO users (login, hashed_password, role_id) VALUES ($1, $2, $3)";
 
         let _ = sqlx::query(req)
-            .bind(payload.login)
-            .bind(hash(payload.password))
+            .bind(login)
+            .bind(hash(password))
+            .bind(role_id)
             .execute(&self.pool)
             .await?;
 
         Ok(())
+    }
+
+    async fn get_user_by_login(&self, login: &str) -> Result<Option<User>, Self::Error> {
+        let req = "SELECT u.login, u.hashed_password, r.name AS role_name FROM users u INNER JOIN roles r ON u.role_id = r.id WHERE u.login = $1";
+
+        let maybe_db_user = sqlx::query_as::<_, DbUser>(req)
+            .bind(login)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        println!("{maybe_db_user:?}");
+
+        let maybe_user = maybe_db_user.map(|u| User {
+            login: u.login,
+            hashed_password: u.hashed_password,
+            role: Role::from(u.role_name),
+        });
+
+        Ok(maybe_user)
+    }
+}
+
+impl AuthPool {
+    pub async fn handle_command(&self, command: AuthCommand) -> Response {
+        match command {
+            AuthCommand::CreateUser {login, password, role}=> {
+                match self.create_user(&login, &password, role.id()).await {
+                    Ok(_) => {
+                        let body = Json(json!({
+                            "message": "User created successfully"
+                        }));
+
+                        (StatusCode::CREATED, body).into_response()
+                    }
+                    Err(e) => e.into_response(),
+                }
+            }
+            AuthCommand::Login {login, password} => {
+                match self.get_user_by_login(&login).await {
+                    Ok(Some(user)) if user.hashed_password == hash(password) => {
+                        match create_jwt(login.clone(), user.role) {
+                            Ok(jwt) => {
+                                log::info!("User: {login} authorized successfully");
+
+                                let body = Json(json!({ "jwt": jwt }));
+                                (StatusCode::OK, body).into_response()
+                            }
+                            Err(_) => {
+                                log::error!("Error while creating jwt");
+
+                                AuthError::InternalServerError.into_response()
+                            },
+                        }
+                    }
+                    Ok(Some(_)) | Ok(None) => {
+                        log::info!("User: {login}, wrong credentials");
+                        AuthError::WrongCredentials.into_response()
+                    }
+                    Err(e) => {
+                        log::error!("AuthRepositoryError: {e}");
+                        e.into_response()
+                    },
+                }
+            }
+        }
     }
 }
 
