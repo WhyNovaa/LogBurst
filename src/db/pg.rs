@@ -25,17 +25,17 @@ pub struct AuthPool {
 
 #[derive(Debug, Error)]
 pub enum AuthRepositoryError {
-    #[error("")]
-    SqlxError(#[from] sqlx::Error)
+    #[error("SqlxError")]
+    SqlxError(sqlx::Error)
 }
 
 impl IntoResponse for AuthRepositoryError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {
-            AuthRepositoryError::SqlxError(sqlx::Error::RowNotFound) => {
+            AuthRepositoryError::SqlxError(Error::RowNotFound) => {
                 (StatusCode::NOT_FOUND, "User not found")
             },
-            AuthRepositoryError::SqlxError(sqlx::Error::Database(e)) if e.kind() == UniqueViolation => {
+            AuthRepositoryError::SqlxError(Error::Database(e)) if e.kind() == UniqueViolation => {
                 (StatusCode::BAD_REQUEST, "User with this login already exists")
             },
             AuthRepositoryError::SqlxError(_) => {
@@ -93,7 +93,7 @@ impl AuthRepository for AuthPool {
             .bind(hash(password))
             .bind(role_id)
             .execute(&self.pool)
-            .await?;
+            .await.map_err(|e| AuthRepositoryError::SqlxError(e))?;
 
         Ok(())
     }
@@ -107,7 +107,7 @@ impl AuthRepository for AuthPool {
         let maybe_db_user = sqlx::query_as::<_, DbUser>(req)
             .bind(login)
             .fetch_optional(&self.pool)
-            .await?;
+            .await.map_err(|e| AuthRepositoryError::SqlxError(e))?;
 
         let maybe_user = maybe_db_user.map(|u| User {
             login: u.login,

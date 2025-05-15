@@ -1,23 +1,18 @@
 use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::sync::Arc;
 use async_trait::async_trait;
-use axum::extract::State;
-use axum::response::Response;
 use axum::Router;
-use tokio::sync::{mpsc, oneshot};
 use crate::handlers::routes::auth_routes;
-use crate::models::app::{AuthCommandSender, LogSender};
-use crate::models::log::Log;
+use crate::models::app::AuthCommandSender;
 use crate::traits::client::Client;
 use crate::traits::start::Start;
 
 pub mod role;
-pub mod auth_body;
 pub mod auth_payload;
 pub mod reg_payload;
 pub mod claims;
+pub mod creation_payload;
 
 pub struct HTTPClient {
     router: Router,

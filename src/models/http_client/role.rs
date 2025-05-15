@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Role {
     User,
     Admin,
@@ -18,6 +18,7 @@ impl Display for Role {
 }
 
 impl From<String> for Role {
+    // if role name is wrong, role will be 'User'
     fn from(value: String) -> Self {
         match value.as_str() {
             "Admin" => Role::Admin,

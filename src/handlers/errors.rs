@@ -7,7 +7,6 @@ use serde_json::json;
 pub enum AuthError {
     WrongCredentials,
     MissingCredentials,
-    TokenCreation,
     InvalidToken,
     InternalServerError,
     PermissionDenied,
@@ -17,7 +16,6 @@ impl IntoResponse for AuthError {
         let (status, error_message) = match self {
             AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
             AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
-            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
             AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
             AuthError::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             AuthError::PermissionDenied => (StatusCode::FORBIDDEN, "Permission denied"),

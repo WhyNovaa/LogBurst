@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::env;
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -23,13 +24,14 @@ use crate::models::app::AuthCommandSender;
 use crate::models::auth_command::AuthCommand;
 use crate::models::http_client::auth_payload::AuthPayload;
 use crate::models::http_client::claims::Claims;
+use crate::models::http_client::creation_payload::CreationPayload;
 use crate::models::http_client::reg_payload::RegPayload;
 use crate::models::http_client::role::Role;
-
+use crate::models::user::User;
 
 pub async fn login(
     State(command_sender): State<AuthCommandSender>,
-    Json(payload): Json<AuthPayload>
+    Json(payload): Json<AuthPayload>,
 ) -> Response {
     log::info!("Login endpoint {:?}", payload);
 
@@ -37,7 +39,10 @@ pub async fn login(
         return AuthError::MissingCredentials.into_response()
     }
 
-    let command = AuthCommand::Login { login: payload.login, password: payload.password };
+    let command = AuthCommand::Login {
+        login: payload.login,
+        password: payload.password
+    };
 
     send_command(&command_sender, command).await
 }
@@ -47,6 +52,10 @@ pub async fn registration(
     Json(payload): Json<RegPayload>,
 ) -> Response {
     log::info!("Registration endpoint: {:?}", payload);
+
+    if payload.login.is_empty() || payload.password.is_empty() {
+        return AuthError::MissingCredentials.into_response()
+    }
 
     let command = AuthCommand::CreateUser {
         login: payload.login,
@@ -58,47 +67,39 @@ pub async fn registration(
     send_command(&command_sender, command).await
 }
 
-pub async fn create_user(claims: Claims) -> Result<String, AuthError> {
-    Ok(format!("Smth {:?}", claims))
+pub async fn create_user(
+    State(command_sender): State<AuthCommandSender>,
+    Json(payload): Json<CreationPayload>,
+    claims: Claims,
+) -> Response {
+    if claims.role != Role::Admin {
+        return AuthError::PermissionDenied.into_response()
+    }
+
+    if payload.login.is_empty() || payload.password.is_empty() {
+        return AuthError::MissingCredentials.into_response()
+    }
+
+   let command = AuthCommand::CreateUser {
+        login: payload.login,
+        password: payload.password,
+        role: Role::from(payload.role_name),
+    };
+
+    send_command(&command_sender, command).await
 }
+
 
 async fn send_command(command_sender: &AuthCommandSender, command: AuthCommand) -> Response {
     let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
 
     if let Err(e) = command_sender.send((command, one_s)).await {
         log::error!("Failed to send command: {}", e);
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": "internal error"})),
-        )
-            .into_response();
+        return AuthError::InternalServerError.into_response()
     }
 
     one_r.await.unwrap_or_else(|e| {
         log::error!("oneshot receive failed: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": "internal error"})),
-        )
-            .into_response()
+        AuthError::InternalServerError.into_response()
     })
-}
-
-impl<S> FromRequestParts<S> for Claims
-where
-    S: Send + Sync,
-{
-    type Rejection = AuthError;
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let TypedHeader(Authorization(bearer)) = parts
-            .extract::<TypedHeader<Authorization<Bearer>>>()
-            .await
-            .map_err(|_| AuthError::InvalidToken)?;
-
-        let claims = validate_jwt(bearer.token())
-            .map_err(|_| AuthError::InvalidToken)?;
-
-        Ok(claims)
-    }
 }
