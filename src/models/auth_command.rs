@@ -1,4 +1,4 @@
-use crate::models::http_client::api::handlers::auth::{AuthPayload, RegPayload, Role};
+use crate::models::http_client::role::Role;
 
 #[derive(Debug)]
 pub enum AuthCommand {

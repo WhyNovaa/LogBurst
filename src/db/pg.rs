@@ -9,9 +9,11 @@ use sqlx::error::ErrorKind::UniqueViolation;
 use thiserror::Error;
 use tokio::sync::oneshot::Sender;
 use crate::db::pg::crypto::hash;
+use crate::handlers::errors::AuthError;
+use crate::handlers::jwt::create_jwt;
 use crate::models::app::AuthCommandReceiver;
-use crate::models::http_client::api::handlers::auth::{create_jwt, AuthError, RegPayload, Role};
-use crate::models::http_client::api::handlers::auth_command::AuthCommand;
+use crate::models::auth_command::AuthCommand;
+use crate::models::http_client::role::Role;
 use crate::models::user::{DbUser, User};
 use crate::traits::auth_repository::AuthRepository;
 use crate::traits::start::Start;
@@ -61,6 +63,7 @@ impl Start for AuthPool {
     }
 }
 
+#[async_trait]
 impl AuthRepository for AuthPool {
     type Error = AuthRepositoryError;
 
@@ -96,14 +99,15 @@ impl AuthRepository for AuthPool {
     }
 
     async fn get_user_by_login(&self, login: &str) -> Result<Option<User>, Self::Error> {
-        let req = "SELECT u.login, u.hashed_password, r.name AS role_name FROM users u INNER JOIN roles r ON u.role_id = r.id WHERE u.login = $1";
+        let req = "SELECT u.login, u.hashed_password, r.name AS role_name \
+                        FROM users u \
+                        INNER JOIN roles r ON u.role_id = r.id \
+                        WHERE u.login = $1";
 
         let maybe_db_user = sqlx::query_as::<_, DbUser>(req)
             .bind(login)
             .fetch_optional(&self.pool)
             .await?;
-
-        println!("{maybe_db_user:?}");
 
         let maybe_user = maybe_db_user.map(|u| User {
             login: u.login,

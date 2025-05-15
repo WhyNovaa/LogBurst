@@ -1,7 +1,9 @@
+use async_trait::async_trait;
 use crate::models::app::AuthCommandReceiver;
 use crate::models::user::User;
 use crate::traits::start::Start;
 
+#[async_trait]
 pub trait AuthRepository: Start + Send + 'static {
     type Error: std::error::Error;
 

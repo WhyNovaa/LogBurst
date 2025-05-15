@@ -7,14 +7,17 @@ use axum::extract::State;
 use axum::response::Response;
 use axum::Router;
 use tokio::sync::{mpsc, oneshot};
+use crate::handlers::routes::auth_routes;
 use crate::models::app::{AuthCommandSender, LogSender};
-use crate::models::http_client::routes::auth_routes;
 use crate::models::log::Log;
 use crate::traits::client::Client;
 use crate::traits::start::Start;
 
-pub mod api;
-mod routes;
+pub mod role;
+pub mod auth_body;
+pub mod auth_payload;
+pub mod reg_payload;
+pub mod claims;
 
 pub struct HTTPClient {
     router: Router,

@@ -17,6 +17,7 @@ impl<A: AuthRepository, L: LogsRepository> Start for DBWorker<A, L> {
     }
 }
 
+#[async_trait]
 impl<A: AuthRepository, L: LogsRepository> DataBase for DBWorker<A, L> {
     async fn new(auth_command_receiver: AuthCommandReceiver) -> Self {
         let auth = A::new(auth_command_receiver).await;
