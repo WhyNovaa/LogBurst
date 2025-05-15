@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::models::http_client::api::handlers::auth::Role;
+use crate::models::http_client::role::Role;
 
 #[derive(Debug)]
 pub struct User {

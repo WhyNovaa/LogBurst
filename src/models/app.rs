@@ -1,7 +1,6 @@
 use axum::response::Response;
-use sqlx::Database;
 use tokio::sync::{mpsc, oneshot};
-use crate::models::http_client::api::handlers::auth_command::AuthCommand;
+use crate::models::auth_command::AuthCommand;
 use crate::models::log::Log;
 use crate::traits::client::Client;
 use crate::traits::data_base::DataBase;
