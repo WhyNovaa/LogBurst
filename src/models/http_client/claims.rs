@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::RequestPartsExt;
@@ -17,7 +16,6 @@ pub struct Claims {
     pub exp: usize,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Claims
 where
     S: Sync + Send + 'static,

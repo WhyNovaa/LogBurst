@@ -69,15 +69,17 @@ pub async fn registration(
 
 pub async fn create_user(
     State(command_sender): State<AuthCommandSender>,
-    Json(payload): Json<CreationPayload>,
     claims: Claims,
+    Json(payload): Json<CreationPayload>,
 ) -> Response {
-    if claims.role != Role::Admin {
-        return AuthError::PermissionDenied.into_response()
-    }
+    log::info!("Creation endpoint: {:?}", payload);
 
     if payload.login.is_empty() || payload.password.is_empty() {
         return AuthError::MissingCredentials.into_response()
+    }
+
+    if claims.role != Role::Admin {
+        return AuthError::PermissionDenied.into_response()
     }
 
    let command = AuthCommand::CreateUser {
