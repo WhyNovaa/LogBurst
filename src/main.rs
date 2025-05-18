@@ -1,7 +1,7 @@
 use crate::models::http_client::HTTPClient;
 use crate::traits::start::Start;
 use dotenv::dotenv;
-use crate::db::click_house::ClickHousePool;
+use crate::db::click_house::ClickHouseClient;
 use crate::db::pg::AuthPool;
 use crate::models::app::App;
 use crate::models::db_worker::DBWorker;
@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    let _ = App::<HTTPClient, DBWorker::<AuthPool, ClickHousePool>>::new().await.start().await;
+    let _ = App::<HTTPClient, DBWorker::<AuthPool, ClickHouseClient>>::new().await.start().await;
 
     Ok(())
 }

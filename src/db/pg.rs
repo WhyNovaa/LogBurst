@@ -51,13 +51,17 @@ impl IntoResponse for AuthRepositoryError {
 #[async_trait]
 impl Start for AuthPool {
     async fn start(mut self) {
+        log::info!("Starting AuthPool");
+
         loop {
            if let Some((command, response_sender)) = self.auth_command_receiver.recv().await {
-               log::info!("Auth: {:?}", command);
+               log::info!("Pg: {:?}", command);
 
                let response = self.handle_command(command).await;
 
-               response_sender.send(response).unwrap();
+               if let Err(response) = response_sender.send(response) {
+                   log::error!("Couldn't send response: {response:?} to http client");
+               }
            }
         }
     }
@@ -68,6 +72,8 @@ impl AuthRepository for AuthPool {
     type Error = AuthRepositoryError;
 
     async fn new(auth_command_receiver: AuthCommandReceiver) -> Self {
+        log::info!("Creating AuthPool");
+
         let user = env::var("POSTGRES_USER").expect("POSTGRES_USER not found in .env file");
         let password =
             env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD not found in .env file");

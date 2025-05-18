@@ -4,7 +4,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use axum::Router;
 use crate::handlers::routes::auth_routes;
-use crate::models::app::AuthCommandSender;
+use crate::models::app::{AuthCommandSender, LogCommandSender};
 use crate::traits::client::Client;
 use crate::traits::start::Start;
 
@@ -23,15 +23,19 @@ pub struct HTTPClient {
 impl Client for HTTPClient {
     fn new(
         auth_command_sender: AuthCommandSender,
+        log_command_sender: LogCommandSender,
     ) -> Self {
         log::info!("Creating HTTPClient");
 
         let router = Router::new()
             .merge(auth_routes(auth_command_sender));
 
-        let url = env::var("URL").expect("URL not found in .env file");
+        let host = env::var("SERVICE_HOST").expect("SERVICE_HOST not found in .env file");
+        let port = env::var("SERVICE_PORT").expect("SERVICE_PORT not found in .env file");
 
-        let addr = SocketAddr::from_str(&url).expect("Invalid URL");
+        let addr = format!("{}:{}", host, port);
+
+        let addr = SocketAddr::from_str(&addr).expect("Invalid URL");
 
         Self {
             router,
