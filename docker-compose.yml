@@ -1,17 +1,4 @@
 services:
-  log-service:
-    container_name: log-service
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8383:${SERVICE_PORT}"
-    environment:
-      - RUST_LOG=info
-    depends_on:
-      - pg
-      - clickhouse-server
-
   pg:
     container_name: pg
     image: postgres:17.0
@@ -34,10 +21,23 @@ services:
       - "8123:8123"
       - "8000:9000"
     environment:
-      - CLICKHOUSE_USER=admin
-      - CLICKHOUSE_PASSWORD=admin
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     volumes:
       - ./init/clickhouse:/docker-entrypoint-initdb.d
       - ./data:/var/lib/clickhouse
       - ./logs:/var/log/clickhouse-server
+
+  log-service:
+    container_name: log-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8383:${SERVICE_PORT}"
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      - pg
+      - clickhouse-server
 

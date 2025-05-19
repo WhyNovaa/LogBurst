@@ -1,7 +1,7 @@
 use crate::models::http_client::HTTPClient;
 use crate::traits::start::Start;
 use dotenv::dotenv;
-use crate::db::click_house::ClickHouseClient;
+use crate::db::click_house_client::ClickHouseClient;
 use crate::db::pg::AuthPool;
 use crate::models::app::App;
 use crate::models::db_worker::DBWorker;

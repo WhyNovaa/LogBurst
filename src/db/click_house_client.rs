@@ -1,3 +1,4 @@
+use std::env;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -34,11 +35,14 @@ impl Start for ClickHouseClient {
 
 impl LogsRepository for ClickHouseClient {
     fn new(log_command_receiver: LogCommandReceiver) -> Self {
+        let user = env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env file");
+        let password = env::var("CLICKHOUSE_PASSWORD").expect("CLICKHOUSE_PASSWORD not found in .env file");
+
         log::info!("Creating ClickHouseClient");
         let client = Client::default()
             .with_url("http://clickhouse-server:8123")
-            .with_user("admin")
-            .with_password("admin");
+            .with_user(user)
+            .with_password(password);
 
         Self {
             client,
