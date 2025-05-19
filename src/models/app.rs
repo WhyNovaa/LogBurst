@@ -4,7 +4,6 @@ use crate::models::auth_command::AuthCommand;
 use crate::models::log_command::LogCommand;
 use crate::traits::client::Client;
 use crate::traits::data_base::DataBase;
-use crate::traits::start::Start;
 
 pub type AuthCommandSender = mpsc::Sender<(AuthCommand, oneshot::Sender<Response>)>;
 pub type AuthCommandReceiver = mpsc::Receiver<(AuthCommand, oneshot::Sender<Response>)>;

@@ -2,12 +2,11 @@ use std::env;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum::Json;
-use axum::response::{IntoResponse, Response};
 use serde_json::json;
+use axum::response::{IntoResponse, Response};
 use sqlx::{Error, PgPool};
 use sqlx::error::ErrorKind::UniqueViolation;
 use thiserror::Error;
-use tokio::sync::oneshot::Sender;
 use crate::db::pg::crypto::hash;
 use crate::handlers::errors::AuthError;
 use crate::handlers::jwt::create_jwt;
@@ -150,8 +149,8 @@ impl AuthPool {
                                 let body = Json(json!({ "jwt": jwt }));
                                 (StatusCode::OK, body).into_response()
                             }
-                            Err(_) => {
-                                log::error!("Error while creating jwt");
+                            Err(e) => {
+                                log::error!("Error while creating jwt: {e}");
 
                                 AuthError::InternalServerError.into_response()
                             },

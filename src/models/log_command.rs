@@ -4,5 +4,8 @@ use crate::models::log::Log;
 pub enum LogCommand {
     SaveLog {
         log: Log
+    },
+    GetLogs {
+        service_name: String
     }
 }

@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use async_trait::async_trait;
 use axum::Router;
-use crate::handlers::routes::auth_routes;
+use crate::handlers::routes::{auth_routes, logs_routes};
 use crate::models::app::{AuthCommandSender, LogCommandSender};
 use crate::traits::client::Client;
 use crate::traits::start::Start;
@@ -19,7 +19,6 @@ pub struct HTTPClient {
     addr: SocketAddr,
 }
 
-
 impl Client for HTTPClient {
     fn new(
         auth_command_sender: AuthCommandSender,
@@ -28,7 +27,8 @@ impl Client for HTTPClient {
         log::info!("Creating HTTPClient");
 
         let router = Router::new()
-            .merge(auth_routes(auth_command_sender));
+            .merge(auth_routes(auth_command_sender))
+            .merge(logs_routes(log_command_sender));
 
         let host = env::var("SERVICE_HOST").expect("SERVICE_HOST not found in .env file");
         let port = env::var("SERVICE_PORT").expect("SERVICE_PORT not found in .env file");

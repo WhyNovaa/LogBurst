@@ -1,6 +1,10 @@
 use crate::models::app::LogCommandReceiver;
+use crate::models::log::Log;
 use crate::traits::start::Start;
 
 pub trait LogsRepository: Start + Send + 'static {
+    type Error: std::error::Error;
     fn new(log_receiver: LogCommandReceiver) -> Self;
+    async fn save_log(&self, log: &Log) -> Result<(), Self::Error>;
+    async fn get_logs(&self, service_name: &String) -> Result<Vec<Log>, Self::Error>;
 }
