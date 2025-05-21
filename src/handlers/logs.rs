@@ -1,9 +1,10 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use axum::response::{IntoResponse, Response};
 use crate::handlers::errors::AuthError;
 use crate::models::app::LogCommandSender;
 use crate::models::http_client::claims::Claims;
+use crate::models::http_client::get_logs_params::GetLogsParams;
 use crate::models::http_client::role::Role;
 use crate::models::log::Log;
 use crate::models::log_command::LogCommand;
@@ -27,15 +28,17 @@ pub async fn save_log(
 pub async fn get_logs(
     State(log_command_sender): State<LogCommandSender>,
     claims: Claims,
-    Path(service_name): Path<String>,
-) -> Response{
-    log::info!("Get_logs endpoint: {}", service_name);
+    Query(params): Query<GetLogsParams>,
+) -> Response {
+    log::info!("Get_logs endpoint: {:?}", params);
 
     if claims.role != Role::Admin {
         return AuthError::PermissionDenied.into_response();
     }
 
-    let command = LogCommand::GetLogs { service_name };
+    let command = LogCommand::GetLogs {
+        params,
+    };
 
     send_command(&log_command_sender, command).await
 }

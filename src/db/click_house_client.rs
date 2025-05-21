@@ -66,16 +66,34 @@ impl LogsRepository for ClickHouseClient {
         Ok(())
     }
 
-    async fn get_logs(&self, service_name: &String) -> Result<Vec<Log>, Self::Error> {
-        let req = "SELECT * FROM logs \
-                        WHERE service = ? \
-                        ORDER BY timestamp DESC";
+    async fn get_logs(&self, service: Option<String>, level: Option<String>) -> Result<Vec<Log>, Self::Error> {
+        let mut bindings = Vec::new();
+        let mut filters = Vec::new();
 
-        let logs = self.client
-            .query(req)
-            .bind(service_name)
-            .fetch_all::<Log>()
-            .await?;
+        let mut req = String::from("SELECT * FROM logs");
+
+        if let Some(service) = service {
+            bindings.push(service);
+            filters.push("service = ?");;
+        }
+
+        if let Some(level) = level {
+            bindings.push(level);
+            filters.push("level = ?");
+        }
+
+        if !filters.is_empty() {
+            req.push_str(" WHERE ");
+            req.push_str(&filters.join(" AND "));
+        }
+
+        let mut query = self.client.query(&req);
+
+        for binding in bindings {
+            query = query.bind(binding);
+        }
+
+        let logs = query.fetch_all::<Log>().await?;
 
         Ok(logs)
     }
@@ -100,8 +118,8 @@ impl ClickHouseClient {
                     }
                 }
             }
-            LogCommand::GetLogs { service_name} => {
-                match self.get_logs(&service_name).await {
+            LogCommand::GetLogs { params} => {
+                match self.get_logs(params.service, params.level).await {
                     Ok(logs) => {
                         (StatusCode::OK, Json(json!(logs))).into_response()
                     }

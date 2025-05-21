@@ -13,6 +13,7 @@ pub mod auth_payload;
 pub mod reg_payload;
 pub mod claims;
 pub mod creation_payload;
+pub mod get_logs_params;
 
 pub struct HTTPClient {
     router: Router,

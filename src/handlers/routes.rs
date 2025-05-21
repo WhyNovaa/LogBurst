@@ -20,7 +20,7 @@ pub fn logs_routes(log_command_sender: LogCommandSender) -> Router {
         .nest("/logs",
             Router::new()
                 .route("/save", post(save_log))
-                .route("/get/{service}", get(get_logs))
+                .route("/get", get(get_logs))
                 .with_state(log_command_sender)
         )
 }
