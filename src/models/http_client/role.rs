@@ -29,8 +29,8 @@ impl From<String> for Role {
 impl Role {
     pub fn id(&self) -> i32 {
         match self {
-            Role::User => 1,
-            Role::Admin => 2,
+            Role::Admin => 1,
+            Role::User => 2,
         }
     }
 }

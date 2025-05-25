@@ -1,11 +1,10 @@
-use axum::extract::{Path, State};
+use axum::extract::State;
 use axum::Json;
 use axum::response::{IntoResponse, Response};
 use crate::handlers::errors::AuthError;
 use crate::models::app::AuthCommandSender;
 use crate::models::auth_command::AuthCommand;
 use crate::models::http_client::auth_payload::AuthPayload;
-use crate::models::http_client::claims::Claims;
 use crate::models::http_client::creation_payload::CreationPayload;
 use crate::models::http_client::reg_payload::RegPayload;
 use crate::models::http_client::role::Role;
@@ -50,17 +49,12 @@ pub async fn registration(
 
 pub async fn create_user(
     State(command_sender): State<AuthCommandSender>,
-    claims: Claims,
     Json(payload): Json<CreationPayload>,
 ) -> Response {
     log::info!("Creation endpoint: {:?}", payload);
 
     if payload.login.is_empty() || payload.password.is_empty() {
         return AuthError::MissingCredentials.into_response()
-    }
-
-    if claims.role != Role::Admin {
-        return AuthError::PermissionDenied.into_response()
     }
 
    let command = AuthCommand::CreateUser {

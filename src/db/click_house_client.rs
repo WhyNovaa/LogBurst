@@ -11,7 +11,6 @@ use crate::models::app::LogCommandReceiver;
 use crate::models::log::Log;
 use crate::models::log_command::LogCommand;
 use axum::Json;
-use clickhouse::error::Error;
 use serde_json::json;
 use tokio::sync::Mutex;
 use tokio::time::interval;
