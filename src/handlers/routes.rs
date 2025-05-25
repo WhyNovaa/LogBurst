@@ -17,6 +17,7 @@ pub fn logs_routes(log_command_sender: LogCommandSender) -> Router {
         .with_state(log_command_sender)
 }
 
+// AUTH
 fn auth_protected_routes() -> Router<AuthCommandSender> {
     Router::new()
         .route("/create", post(create_user))
@@ -29,6 +30,7 @@ fn auth_public_routes() -> Router<AuthCommandSender> {
         .route("/login", post(login))
 }
 
+// LOGS
 fn logs_protected_routes() -> Router<LogCommandSender> {
     Router::new()
         .route("/save", post(save_log))
