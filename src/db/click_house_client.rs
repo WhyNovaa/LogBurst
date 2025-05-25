@@ -1,4 +1,6 @@
 use std::env;
+use std::sync::Arc;
+use std::time::Duration;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -9,11 +11,17 @@ use crate::models::app::LogCommandReceiver;
 use crate::models::log::Log;
 use crate::models::log_command::LogCommand;
 use axum::Json;
+use clickhouse::error::Error;
 use serde_json::json;
+use tokio::sync::Mutex;
+use tokio::time::interval;
+
+pub const SAVE_INTERVAL: u64 = 500;
 
 pub struct ClickHouseClient {
     pub client: Client,
     pub log_command_receiver: LogCommandReceiver,
+    pub logs_buff: Arc<Mutex<Vec<Log>>>
 }
 
 #[async_trait]
@@ -21,9 +29,14 @@ impl Start for ClickHouseClient {
     async fn start(mut self) {
         log::info!("Starting ClickHouseClient");
 
-        let res = self.client.query("SELECT * FROM logs").fetch_all::<Log>().await.unwrap();
+        tokio::spawn({
+            let client = self.client.clone();
+            let buff = Arc::clone(&self.logs_buff);
+            async move {
+                flush_loop(client, buff).await
+            }
+        });
 
-        println!("{res:?}");
         loop {
             if let Some((command, response_sender)) = self.log_command_receiver.recv().await {
                 log::info!("ClickHouse: {:?}", command);
@@ -42,27 +55,34 @@ impl LogsRepository for ClickHouseClient {
     type Error = clickhouse::error::Error;
 
     fn new(log_command_receiver: LogCommandReceiver) -> Self {
+        log::info!("Creating ClickHouseClient");
+
         let user = env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env file");
         let password = env::var("CLICKHOUSE_PASSWORD").expect("CLICKHOUSE_PASSWORD not found in .env file");
 
-        log::info!("Creating ClickHouseClient");
         let client = Client::default()
             .with_url("http://clickhouse-server:8123")
             .with_user(user)
             .with_password(password);
 
+        let logs_buff = Arc::new(Mutex::new(Vec::new()));
+
         Self {
             client,
-            log_command_receiver
+            log_command_receiver,
+            logs_buff,
         }
     }
 
-    async fn save_log(&self, log: &Log) -> Result<(), Self::Error> {
-        let mut insert = self.client
+    async fn save_logs(client: &Client, logs: &[Log]) -> Result<(), Self::Error> {
+        let mut insert = client
             .insert("logs")?;
 
-        insert.write(log)
-            .await?;
+
+        for log in logs {
+            insert.write(log)
+                .await?;
+        }
 
         insert.end().await?;
 
@@ -106,20 +126,13 @@ impl ClickHouseClient {
     pub async fn handle_command(&self, command: LogCommand) -> Response {
         match command {
             LogCommand::SaveLog { log } => {
-                match self.save_log(&log).await {
-                    Ok(()) => {
-                        let body = Json(json!({
-                            "message": "log saved successfully"
-                        }));
+                self.logs_buff.lock().await.push(log);
 
-                        (StatusCode::OK, body).into_response()
-                    }
-                    Err(e) => {
-                        log::error!("Error while saving log: {e}");
+                let body = Json(json!({
+                    "message": "log saved successfully"
+                }));
 
-                        (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-                    }
-                }
+                (StatusCode::OK, body).into_response()
             }
             LogCommand::GetLogs { params} => {
                 match self.get_logs(params.service, params.level).await {
@@ -134,5 +147,26 @@ impl ClickHouseClient {
                 }
             }
         }
+    }
+}
+
+pub async fn flush_loop(client: Client, buffer: Arc<Mutex<Vec<Log>>>) {
+    let mut ticker = interval(Duration::from_millis(SAVE_INTERVAL));
+
+    loop {
+        ticker.tick().await;
+
+        let mut logs = buffer.lock().await;
+
+        if logs.is_empty() {
+            continue;
+        }
+
+        match ClickHouseClient::save_logs(&client, logs.as_slice()).await {
+            Ok(_) => log::info!("Logs were flushed successfully"),
+            Err(e) => log::error!("Error while flushing logs: {e}"),
+        }
+
+        logs.clear();
     }
 }
