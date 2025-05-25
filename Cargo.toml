@@ -22,3 +22,5 @@ thiserror = "2.0.12"
 ring = { version = "0.17.14", features = ["std"] }
 hex = "0.4.3"
 clickhouse = "0.13.2"
+metrics = { version = "0.23", default-features = false }
+metrics-exporter-prometheus = { version = "0.15", default-features = false }

@@ -1,5 +1,5 @@
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use crate::handlers::auth::{create_user, login, registration};
 use crate::handlers::logs::{get_logs, save_log};
 use crate::models::app::{AuthCommandSender, LogCommandSender};
@@ -11,6 +11,7 @@ pub fn auth_routes(auth_command_sender: AuthCommandSender) -> Router {
                 .route("/reg", post(registration))
                 .route("/login", post(login))
                 .route("/create", post(create_user))
+                //.route("/delete", delete(delete_user))
                 .with_state(auth_command_sender)
         )
 }
@@ -20,7 +21,7 @@ pub fn logs_routes(log_command_sender: LogCommandSender) -> Router {
         .nest("/logs",
             Router::new()
                 .route("/save", post(save_log))
-                .route("/get", get(get_logs))
+                .route("/", get(get_logs))
                 .with_state(log_command_sender)
         )
 }

@@ -1,5 +1,4 @@
-
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::Json;
 use axum::response::{IntoResponse, Response};
 use crate::handlers::errors::AuthError;
@@ -73,7 +72,14 @@ pub async fn create_user(
     send_command(&command_sender, command).await
 }
 
+/*pub async fn delete_user(
+    State(command_sender): State<AuthCommandSender>,
+    claims: Claims,
+    Path(login): Path<String>,
+) -> Response {
 
+}
+*/
 async fn send_command(command_sender: &AuthCommandSender, command: AuthCommand) -> Response {
     let (one_s, one_r) = tokio::sync::oneshot::channel::<Response>();
 

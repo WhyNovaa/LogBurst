@@ -21,6 +21,9 @@ impl Start for ClickHouseClient {
     async fn start(mut self) {
         log::info!("Starting ClickHouseClient");
 
+        let res = self.client.query("SELECT * FROM logs").fetch_all::<Log>().await.unwrap();
+
+        println!("{res:?}");
         loop {
             if let Some((command, response_sender)) = self.log_command_receiver.recv().await {
                 log::info!("ClickHouse: {:?}", command);
@@ -74,7 +77,7 @@ impl LogsRepository for ClickHouseClient {
 
         if let Some(service) = service {
             bindings.push(service);
-            filters.push("service = ?");;
+            filters.push("service = ?");
         }
 
         if let Some(level) = level {
