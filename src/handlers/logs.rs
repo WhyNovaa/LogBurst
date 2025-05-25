@@ -1,4 +1,4 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::Json;
 use axum::response::{IntoResponse, Response};
 use crate::handlers::errors::AuthError;
