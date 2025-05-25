@@ -33,13 +33,6 @@ impl<C: Client, D: DataBase> App<C, D> {
     }
 
     pub async fn start(self) {
-        let client_task = tokio::spawn(async move {
-            self.http_client.start().await;
-        });
-        let db_task = tokio::spawn(async move {
-            self.db.start().await;
-        });
-
-        let (_db_res, _client_res) = tokio::join!(db_task, client_task);
+        let (_db_res, _client_res) = tokio::join!(self.http_client.start(), self.db.start());
     }
 }
