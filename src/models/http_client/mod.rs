@@ -2,6 +2,7 @@ use std::env;
 use std::future::ready;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 use async_trait::async_trait;
 use axum::extract::Request;
 use axum::response::Response;
@@ -12,6 +13,7 @@ use crate::handlers::middlewares::track_metrics;
 use crate::handlers::routes::{auth_routes, logs_routes};
 use crate::models::app::{AuthCommandSender, LogCommandSender};
 use crate::traits::client::Client;
+use crate::traits::logs_repository::LogsRepository;
 use crate::traits::start::Start;
 
 pub mod role;
@@ -21,23 +23,25 @@ pub mod claims;
 pub mod creation_payload;
 pub mod get_logs_params;
 
-pub struct HTTPClient {
+pub struct HTTPClient<L: LogsRepository> {
     router: Router,
     addr: SocketAddr,
     metrics_router: Router,
     metrics_addr: SocketAddr,
+    db: Arc<L>,
 }
 
-impl Client for HTTPClient {
+impl<L: LogsRepository> Client<L> for HTTPClient<L> {
     fn new(
         auth_command_sender: AuthCommandSender,
-        log_command_sender: LogCommandSender,
     ) -> Self {
         log::info!("Creating HTTPClient");
 
+        let db = Arc::new(L::new());
+
         let router = Router::new()
             .merge(auth_routes(auth_command_sender))
-            .merge(logs_routes(log_command_sender))
+            .merge(logs_routes(Arc::clone(&db)))
             .layer(middleware::from_fn(track_metrics));
 
         let host = env::var("SERVICE_HOST").expect("SERVICE_HOST not found in .env file");
@@ -62,12 +66,13 @@ impl Client for HTTPClient {
             addr,
             metrics_router,
             metrics_addr,
+            db
         }
     }
 }
 
 #[async_trait]
-impl Start for HTTPClient {
+impl<L: LogsRepository> Start for HTTPClient<L> {
     async fn start(self) {
         log::info!("Starting HTTPClient");
 

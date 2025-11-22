@@ -1,5 +1,7 @@
 use std::env;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 use async_trait::async_trait;
 use axum::http::StatusCode;
@@ -12,48 +14,40 @@ use crate::models::log::Log;
 use crate::models::log_command::LogCommand;
 use axum::Json;
 use serde_json::json;
-use tokio::sync::Mutex;
+use tokio::io::AsyncWriteExt;
+use tokio::sync::{Mutex, RwLock};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::error::SendError;
 use tokio::time::interval;
 
-pub const SAVE_INTERVAL: u64 = 500;
+const SAVE_INTERVAL: u64 = 500;
+const BATCH_SAVE_AMOUNT: usize = 10000;
 
 pub struct ClickHouseClient {
     pub client: Client,
-    pub log_command_receiver: LogCommandReceiver,
-    pub logs_buff: Arc<Mutex<Vec<Log>>>
 }
 
-#[async_trait]
+/*#[async_trait]
 impl Start for ClickHouseClient {
-    async fn start(mut self) {
+    fn start(mut self) {
         log::info!("Starting ClickHouseClient");
+
+        let (tx, rx) = unbounded_channel::<Log>();
 
         tokio::spawn({
             let client = self.client.clone();
-            let buff = Arc::clone(&self.logs_buff);
             async move {
-                flush_loop(client, buff).await
+                flush_loop(client, rx).await
             }
         });
-
-        loop {
-            if let Some((command, response_sender)) = self.log_command_receiver.recv().await {
-                log::info!("ClickHouse: {:?}", command);
-
-                let response = self.handle_command(command).await;
-
-                if let Err(response) = response_sender.send(response) {
-                    log::error!("Couldn't send response: {response:?} to http client");
-                }
-            }
-        }
     }
-}
+}*/
 
+#[async_trait]
 impl LogsRepository for ClickHouseClient {
     type Error = clickhouse::error::Error;
 
-    fn new(log_command_receiver: LogCommandReceiver) -> Self {
+    fn new() -> Self {
         log::info!("Creating ClickHouseClient");
 
         let user = env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env file");
@@ -61,27 +55,33 @@ impl LogsRepository for ClickHouseClient {
 
         let client = Client::default()
             .with_url("http://clickhouse-server:8123")
+            .with_compression(clickhouse::Compression::Lz4)
             .with_user(user)
             .with_password(password);
 
-        let logs_buff = Arc::new(Mutex::new(Vec::new()));
-
         Self {
             client,
-            log_command_receiver,
-            logs_buff,
         }
     }
 
-    async fn save_logs(client: &Client, logs: &[Log]) -> Result<(), Self::Error> {
-        let mut insert = client
+    async fn save_logs(&self, logs: &Vec<Log>) -> Result<(), Self::Error> {
+        let mut insert = self.client
             .insert("logs")?;
 
-
         for log in logs {
-            insert.write(log)
-                .await?;
+            insert.write(log).await?;
         }
+
+        insert.end().await?;
+
+        Ok(())
+    }
+
+    async fn save_log(&self, log: &Log) -> Result<(), Self::Error> {
+        let mut insert = self.client
+            .insert("logs")?;
+
+        insert.write(log).await?;
 
         insert.end().await?;
 
@@ -121,11 +121,15 @@ impl LogsRepository for ClickHouseClient {
     }
 }
 
-impl ClickHouseClient {
-    pub async fn handle_command(&self, command: LogCommand) -> Response {
+/*impl ClickHouseClient {
+    pub async fn handle_command(client: Client, tx: Arc<UnboundedSender<Log>>, command: LogCommand) -> Response {
         match command {
             LogCommand::SaveLog { log } => {
-                self.logs_buff.lock().await.push(log);
+                if let Err(e) = tx.send(log) {
+                    log::error!("Error while sending log: {e}");
+
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
+                }
 
                 let body = Json(json!({
                     "message": "log saved successfully"
@@ -134,7 +138,7 @@ impl ClickHouseClient {
                 (StatusCode::OK, body).into_response()
             }
             LogCommand::GetLogs { params} => {
-                match self.get_logs(params.service, params.level).await {
+                match ClickHouseClient::get_logs(&client, params.service, params.level).await {
                     Ok(logs) => {
                         (StatusCode::OK, Json(json!(logs))).into_response()
                     }
@@ -147,25 +151,41 @@ impl ClickHouseClient {
             }
         }
     }
-}
+}*/
 
-pub async fn flush_loop(client: Client, buffer: Arc<Mutex<Vec<Log>>>) {
+/*pub async fn flush_loop(client: Client, mut rx: UnboundedReceiver<Log>) {
     let mut ticker = interval(Duration::from_millis(SAVE_INTERVAL));
 
+    let mut buff = Vec::with_capacity(10000);
+
     loop {
+/*        loop {
+            tokio::select! {
+                _ = ticker.tick() => {
+                    rx.recv_many(&mut buff, BATCH_SAVE_AMOUNT).await;
+                    break;
+                }
+
+                Some(log) = rx.recv() => {
+                    buff.push(log);
+                    if buff.len() >= BATCH_SAVE_AMOUNT {
+                        break;
+                    }
+                }
+
+                else => {
+                    break;
+                }
+            }*/
         ticker.tick().await;
 
-        let mut logs = buffer.lock().await;
+        rx.recv_many(&mut buff, BATCH_SAVE_AMOUNT).await;
 
-        if logs.is_empty() {
-            continue;
+        match ClickHouseClient::save_logs(&client, &mut buff).await {
+            Ok(_) => log::info!("Butch of logs were flushed successfully"),
+            Err(e) => log::error!("Error while flushing butch of logs: {e}"),
         }
 
-        match ClickHouseClient::save_logs(&client, logs.as_slice()).await {
-            Ok(_) => log::info!("Logs were flushed successfully"),
-            Err(e) => log::error!("Error while flushing logs: {e}"),
-        }
-
-        logs.clear();
+        buff.clear();
     }
-}
+}*/

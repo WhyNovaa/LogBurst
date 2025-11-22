@@ -1,9 +1,11 @@
+use std::sync::Arc;
 use axum::{middleware, Router};
 use axum::routing::{get, post};
 use crate::handlers::auth::{create_user, login, registration};
 use crate::handlers::logs::{get_logs, save_log};
 use crate::handlers::middlewares::check_admin_role;
 use crate::models::app::{AuthCommandSender, LogCommandSender};
+use crate::traits::logs_repository::LogsRepository;
 
 pub fn auth_routes(auth_command_sender: AuthCommandSender) -> Router {
     Router::new()
@@ -11,10 +13,10 @@ pub fn auth_routes(auth_command_sender: AuthCommandSender) -> Router {
         .with_state(auth_command_sender)
 }
 
-pub fn logs_routes(log_command_sender: LogCommandSender) -> Router {
+pub fn logs_routes<L: LogsRepository>(logs_db: Arc<L>) -> Router {
     Router::new()
         .nest("/logs", logs_protected_routes().merge(logs_public_routes()))
-        .with_state(log_command_sender)
+        .with_state(logs_db)
 }
 
 // AUTH
@@ -31,13 +33,13 @@ fn auth_public_routes() -> Router<AuthCommandSender> {
 }
 
 // LOGS
-fn logs_protected_routes() -> Router<LogCommandSender> {
+fn logs_protected_routes<L: LogsRepository>() -> Router<Arc<L>> {
     Router::new()
         .route("/save", post(save_log))
         .route_layer(middleware::from_fn(check_admin_role))
 }
 
-fn logs_public_routes() -> Router<LogCommandSender> {
+fn logs_public_routes<L: LogsRepository>() -> Router<Arc<L>> {
     Router::new()
         .route("/", get(get_logs))
 }

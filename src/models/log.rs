@@ -1,7 +1,7 @@
 use clickhouse::Row;
 use serde::{Deserialize, Serialize};
 
-#[derive(Row, Serialize, Deserialize, Debug)]
+#[derive(Row, Serialize, Deserialize, Debug, Clone)]
 pub struct Log {
     pub timestamp: u32,
     pub level: String,

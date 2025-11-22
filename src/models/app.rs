@@ -1,9 +1,11 @@
+use std::marker::PhantomData;
 use axum::response::Response;
 use tokio::sync::{mpsc, oneshot};
 use crate::models::auth_command::AuthCommand;
 use crate::models::log_command::LogCommand;
 use crate::traits::client::Client;
 use crate::traits::data_base::DataBase;
+use crate::traits::logs_repository::LogsRepository;
 
 pub type AuthCommandSender = mpsc::Sender<(AuthCommand, oneshot::Sender<Response>)>;
 pub type AuthCommandReceiver = mpsc::Receiver<(AuthCommand, oneshot::Sender<Response>)>;
@@ -11,24 +13,25 @@ pub type AuthCommandReceiver = mpsc::Receiver<(AuthCommand, oneshot::Sender<Resp
 pub type LogCommandSender = mpsc::Sender<(LogCommand, oneshot::Sender<Response>)>;
 pub type LogCommandReceiver = mpsc::Receiver<(LogCommand, oneshot::Sender<Response>)>;
 
-const BUFFER_SIZE: usize = 100;
+const BUFFER_SIZE: usize = 1000;
 
-pub struct App<C: Client, D: DataBase> {
+pub struct App<C: Client<L>, D: DataBase, L: LogsRepository> {
     http_client: C,
     db: D,
+    _marker: PhantomData<L>,
 }
 
-impl<C: Client, D: DataBase> App<C, D> {
+impl<C: Client<L>, D: DataBase, L: LogsRepository> App<C, D, L> {
     pub async fn new() -> Self {
         let (auth_command_sender, auth_command_receiver) = mpsc::channel::<(AuthCommand, oneshot::Sender<Response>)>(BUFFER_SIZE);
-        let (log_command_sender, log_command_receiver) = mpsc::channel::<(LogCommand, oneshot::Sender<Response>)>(BUFFER_SIZE);
 
-        let http_client = C::new(auth_command_sender, log_command_sender);
-        let db = D::new(auth_command_receiver, log_command_receiver).await;
+        let http_client = C::new(auth_command_sender);
+        let db = D::new(auth_command_receiver).await;
 
         Self {
             http_client,
             db,
+            _marker: PhantomData::default(),
         }
     }
 

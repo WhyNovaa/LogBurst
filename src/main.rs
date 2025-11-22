@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    let _ = App::<HTTPClient, DBWorker::<AuthPool, ClickHouseClient>>::new().await.start().await;
+    let _ = App::<HTTPClient::<ClickHouseClient>, DBWorker::<AuthPool>, ClickHouseClient>::new().await.start().await;
 
     Ok(())
 }
