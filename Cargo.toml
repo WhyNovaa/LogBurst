@@ -4,18 +4,30 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# rt
 tokio = { version = "1.44.2", features = ["full"] }
+tokio-util = "0.7.14"
 
 # pg
 deadpool-postgres = { version = "0.14.1", features = ["rt_tokio_1"] }
 tokio-postgres = "0.7.13"
 refinery = { version = "0.8.16", features = ["tokio-postgres"] }
 
+# clickhouse
+clickhouse-rs = { version = "1.1.0-alpha.1", features = ["tokio"] }
+
 # .env
 dotenvy = "0.15.7"
 envy = "0.4.2"
 
+# log
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 
+# rest
 serde = { version = "1.0.219", features = ["derive"] }
 thiserror = "2.0.12"
 axum = "0.8.3"
+anyhow = "1.0.97"
+jsonwebtoken = "9.3.1"
+chrono = "0.4.40"

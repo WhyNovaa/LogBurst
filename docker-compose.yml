@@ -8,7 +8,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init/pg/up:/docker-entrypoint-initdb.d
+      - ./migrations/pg/up:/docker-entrypoint-initdb.d
+
+  clickhouse:
+
   log-service:
     container_name: log-service
     env_file:
@@ -20,3 +23,4 @@ services:
       - "${SERVICE_PORT}:8080"
     depends_on:
       - pg
+      - clickhouse

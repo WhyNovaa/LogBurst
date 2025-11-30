@@ -1,16 +1,12 @@
 use crate::config::postgres::PostgresConfig;
 use crate::db::pg::structs::User;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
-use refinery::embed_migrations;
-use tokio_postgres::{Error, GenericClient, NoTls};
+use tokio_postgres::{Error, NoTls};
 
-mod structs;
-mod error;
-
-embed_migrations!("migrations/pg/up");
+pub mod structs;
 
 pub struct Postgres {
-    pub client: deadpool_postgres::Client,
+    client: deadpool_postgres::Client,
 }
 
 impl Postgres {
@@ -25,9 +21,7 @@ impl Postgres {
 
         let pool = Pool::builder(mgr).max_size(16).build().unwrap();
 
-        let mut client = pool.get().await.unwrap();
-
-        run_migrations(&mut client).await;
+        let client = pool.get().await.unwrap();
 
         Self {
             client
@@ -41,9 +35,4 @@ impl Postgres {
 
         Ok(res.is_some())
     }
-}
-
-pub async fn run_migrations(client: &mut deadpool_postgres::Client) {
-    let tokio_pg_client: &mut tokio_postgres::Client = &mut **client;
-    migrations::runner().run_async(tokio_pg_client).await.unwrap();
 }

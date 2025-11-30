@@ -1,20 +1,16 @@
-use crate::config::postgres::PostgresConfig;
-use crate::db::pg::Postgres;
-use tokio_postgres::types::ToSql;
+use crate::config::Config;
+use crate::server::Server;
 
 mod db;
 mod config;
 mod rest;
+mod server;
 
 #[tokio::main]
 async fn main() {
-    let cfg = PostgresConfig::from_env().unwrap();
+    tracing_subscriber::fmt::init();
+    let cfg = Config::from_env().unwrap();
+    dbg!(&cfg);
 
-    let pg = Postgres::connect(cfg).await;
-
-    let params: Vec<&(dyn ToSql + Sync)> = Vec::new();
-
-    let res = pg.client.execute_raw("SELECT 1 + 1", params).await.unwrap();
-
-    dbg!("ABOBA");
+    let server = Server::new(cfg).await;
 }
