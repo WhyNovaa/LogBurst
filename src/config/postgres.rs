@@ -1,7 +1,7 @@
 use dotenvy::dotenv;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PostgresConfig {
     pub host: String,
     pub user: String,

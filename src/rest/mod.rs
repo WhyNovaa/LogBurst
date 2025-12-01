@@ -1,8 +1,11 @@
 mod auth;
 mod structs;
 mod error;
+mod logs;
 
 use crate::config::Config;
+use crate::db::clickhouse::structs::Log;
+use crate::rest::structs::AppState;
 use crate::server::Server;
 use axum::routing::post;
 use axum::Router;
@@ -20,12 +23,12 @@ pub static SECRET_KEY: LazyLock<Vec<u8>> = LazyLock::new(|| {
         .into_bytes()
 });
 
-async fn run_rest(server: Arc<Server>, cfg: Arc<Config>) -> anyhow::Result<()> {
+pub async fn run_rest(server: Arc<Server>, cfg: Arc<Config>, log_sender: kanal::AsyncSender<Log>) -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(cfg.rest_cfg.url())
         .await
         .unwrap();
 
-    let router = get_router(Arc::clone(&server));
+    let router = get_router(Arc::clone(&server), log_sender);
 
     let shutdown_signal = server.token.clone();
 
@@ -36,7 +39,7 @@ async fn run_rest(server: Arc<Server>, cfg: Arc<Config>) -> anyhow::Result<()> {
         .into_future();
 
     let deadline = async {
-        server.token.cancelled().await; // Тут можно оставить как есть, т.к. это локальный await
+        server.token.cancelled().await;
         tokio::time::sleep(Duration::from_secs(2)).await;
     };
 
@@ -51,8 +54,15 @@ async fn run_rest(server: Arc<Server>, cfg: Arc<Config>) -> anyhow::Result<()> {
         }
     }
 }
-pub fn get_router(server: Arc<Server>) -> Router {
-    Router::new()
-        .route("/login", post(auth::login))
-        .with_state(server)
+pub fn get_router(server: Arc<Server>, log_sender: kanal::AsyncSender<Log>) -> Router {
+    let auth_router = Router::new()
+        .route("/auth/login", post(auth::login));
+
+    let logs_router = Router::new()
+        .route("/logs", post(logs::add_log));
+
+    auth_router.merge(logs_router).with_state(AppState {
+        server,
+        log_sender,
+    })
 }

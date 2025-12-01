@@ -1,4 +1,4 @@
 CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL PRIMARY KEY,
-    hashed_password VARCHAR(256) NOT NULL
+    hashed_password TEXT NOT NULL
 )

@@ -1,7 +1,7 @@
 use dotenvy::dotenv;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RestConfig {
     pub ip: String,
     pub port: String,

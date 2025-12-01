@@ -1,15 +1,24 @@
+use crate::db::clickhouse::structs::Log;
 use crate::rest::SECRET_KEY;
+use crate::server::Server;
+use axum::extract::FromRef;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::Duration;
-
 const TOKEN_EXPIRATION: Duration = Duration::from_secs(3600);
+
+#[derive(Clone, FromRef)]
+pub struct AppState {
+    pub server: Arc<Server>,
+    pub log_sender: kanal::AsyncSender<Log>,
+}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub username: String,
-    pub hashed_password: String,
+    pub password: String,
 }
 
 #[derive(Serialize)]

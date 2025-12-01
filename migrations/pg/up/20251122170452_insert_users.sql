@@ -1,2 +1,2 @@
 INSERT INTO users (username, hashed_password)
-VALUES ('user', '04f8996da763b7a969b1028ee3007569eaf3a635486ddab211d512c85b9df8fb');
+VALUES ('user', '$argon2id$v=19$m=19456,t=2,p=1$BkxIKg/6zguEr0bFysN3OA$bm934SZfRdByF7TurEsoii8FJn4BVExkB21aXuRyRAU');
