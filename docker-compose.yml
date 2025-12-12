@@ -28,7 +28,6 @@ services:
     volumes:
       - ./migrations/clickhouse/up:/docker-entrypoint-initdb.d
       - clickhouse-data:/var/lib/clickhouse
-      #- clickhouse-logs:/var/log/clickhouse-server
 
   log-service:
     container_name: log-service
@@ -42,5 +41,6 @@ services:
     depends_on:
       - pg
       - clickhouse
+    
 volumes:
   clickhouse-data:

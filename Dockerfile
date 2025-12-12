@@ -26,5 +26,5 @@ WORKDIR /usr/local/bin
 
 COPY --from=builder /usr/src/app/target/release/LogBurst .
 
-CMD ["dockerize", "-wait", "tcp://pg:5432", "-timeout", "30s", "LogBurst"]
+CMD ["dockerize", "-wait", "tcp://pg:5432", "-wait", "tcp://clickhouse-server:8123", "-timeout", "30s", "LogBurst"]
 
