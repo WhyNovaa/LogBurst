@@ -28,14 +28,6 @@ impl Postgres {
         }
     }
 
-    pub async fn login(&self, user: User) -> Result<bool, Error> {
-        let req = "SELECT 1 FROM users WHERE username = $1 AND hashed_password = $2";
-
-        let res = self.client.query_opt(req, &[&user.username, &user.hashed_password]).await?;
-
-        Ok(res.is_some())
-    }
-
     pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, Error> {
         let req = "SELECT * FROM users WHERE username = $1";
 
