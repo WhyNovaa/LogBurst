@@ -1,5 +1,7 @@
+use crate::grpc::log_proto::LogEntry;
 use chrono::Utc;
 use clickhouse::Row;
+use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use time::OffsetDateTime;
@@ -26,6 +28,28 @@ impl From<serde_json::Value> for Log {
             service: take_field("service").unwrap_or_else(|| "unknown".to_string()),
             message: take_field("service").unwrap_or_default(),
             raw_data: value.to_string(),
+        }
+    }
+}
+
+impl From<LogEntry> for Log {
+    fn from(value: LogEntry) -> Self {
+        let proto_ts: Option<Timestamp> = value.timestamp;
+
+        let timestamp = proto_ts
+            .and_then(|ts| {
+                OffsetDateTime::from_unix_timestamp(ts.seconds)
+                    .ok()
+                    .map(|odt| odt.replace_nanosecond(ts.nanos as u32).unwrap_or(odt))
+            })
+            .unwrap_or_else(OffsetDateTime::now_utc);
+
+        Self {
+            timestamp,
+            level: value.level,
+            service: value.service,
+            message: value.message,
+            raw_data: "".to_string(),
         }
     }
 }

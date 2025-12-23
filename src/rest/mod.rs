@@ -3,6 +3,7 @@ mod structs;
 mod error;
 mod logs;
 
+use crate::config::rest::RestConfig;
 use crate::config::Config;
 use crate::db::clickhouse::structs::Log;
 use crate::rest::structs::AppState;
@@ -23,8 +24,8 @@ pub static SECRET_KEY: LazyLock<Vec<u8>> = LazyLock::new(|| {
         .into_bytes()
 });
 
-pub async fn run_rest(server: Arc<Server>, cfg: Arc<Config>, log_sender: kanal::AsyncSender<Log>) -> anyhow::Result<()> {
-    let listener = tokio::net::TcpListener::bind(cfg.rest_cfg.url())
+pub async fn run_rest(server: Arc<Server>, cfg: RestConfig, log_sender: kanal::AsyncSender<Log>) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind(cfg.url())
         .await
         .unwrap();
 

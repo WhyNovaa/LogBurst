@@ -32,8 +32,13 @@ axum = { version = "0.8.3", features = ["macros"] }
 anyhow = "1.0.97"
 jsonwebtoken = "9.3.1"
 chrono = "0.4.40"
+tonic = "0.13.0"
 
 argon2 = { version = "0.6.0-pre.1", features = ["getrandom"] }
 kanal = { version = "0.1.1", features = ["async"] }
 
 time = { version = "0.3", features = ["serde-human-readable", "macros"] }
+prost = "0.13.5"
+prost-types = "0.13.5"
+[build-dependencies]
+tonic-build = "0.13.0"

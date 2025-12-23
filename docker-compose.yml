@@ -37,10 +37,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT}:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "${GRPC_PORT}:${GRPC_PORT}"
     depends_on:
       - pg
       - clickhouse
-    
+
 volumes:
   clickhouse-data:

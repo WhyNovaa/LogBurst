@@ -1,16 +1,19 @@
 use crate::config::clickhouse::ClickhouseConfig;
+use crate::config::grpc::GrpcConfig;
 use crate::config::postgres::PostgresConfig;
 use crate::config::rest::RestConfig;
 
 pub mod postgres;
 pub mod rest;
 pub mod clickhouse;
+pub mod grpc;
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub rest_cfg: RestConfig,
     pub pg_cfg: PostgresConfig,
     pub clickhouse_cfg: ClickhouseConfig,
+    pub grpc_config: GrpcConfig,
 }
 
 impl Config {
@@ -19,6 +22,7 @@ impl Config {
             rest_cfg: RestConfig::from_env()?,
             pg_cfg: PostgresConfig::from_env()?,
             clickhouse_cfg: ClickhouseConfig::from_env()?,
+            grpc_config: GrpcConfig::from_env()?,
         })
     }
 }
