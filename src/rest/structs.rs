@@ -27,7 +27,6 @@ pub struct Claims {
     exp: usize,
 }
 
-
 impl Claims {
     pub fn new(sub: String) -> anyhow::Result<String> {
         let expiration = Utc::now() + TOKEN_EXPIRATION;
@@ -37,6 +36,10 @@ impl Claims {
             exp: expiration.timestamp() as usize,
         };
 
-        Ok(jsonwebtoken::encode(&Header::default(), &claims, &EncodingKey::from_secret(&*SECRET_KEY))?)
+        Ok(jsonwebtoken::encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(&*SECRET_KEY),
+        )?)
     }
 }

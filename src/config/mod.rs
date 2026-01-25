@@ -3,10 +3,10 @@ use crate::config::grpc::GrpcConfig;
 use crate::config::postgres::PostgresConfig;
 use crate::config::rest::RestConfig;
 
-pub mod postgres;
-pub mod rest;
 pub mod clickhouse;
 pub mod grpc;
+pub mod postgres;
+pub mod rest;
 
 #[derive(Debug, Clone)]
 pub struct Config {

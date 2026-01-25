@@ -23,9 +23,7 @@ impl Postgres {
 
         let client = pool.get().await.unwrap();
 
-        Self {
-            client
-        }
+        Self { client }
     }
 
     pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, Error> {

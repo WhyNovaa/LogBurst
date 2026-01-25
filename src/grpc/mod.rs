@@ -1,8 +1,10 @@
 use crate::config::grpc::GrpcConfig;
 use crate::db::clickhouse::structs::Log;
 use crate::server::Server;
-use kanal::SendError;
-use log_proto::{log_collector_server::{LogCollector, LogCollectorServer}, LogEntry, LogResponse};
+use log_proto::{
+    LogEntry, LogResponse,
+    log_collector_server::{LogCollector, LogCollectorServer},
+};
 
 use std::sync::Arc;
 use time::OffsetDateTime;
@@ -20,10 +22,7 @@ pub struct LogCollectorService {
 
 #[tonic::async_trait]
 impl LogCollector for LogCollectorService {
-    #[tracing::instrument(
-        name = "grpc_ingestion",
-        skip(self, request),
-    )]
+    #[tracing::instrument(name = "grpc_ingestion", skip(self, request))]
     async fn send_logs(
         &self,
         request: Request<Streaming<LogEntry>>,
@@ -85,7 +84,10 @@ pub async fn run_grpc_server(
         sender: log_sender,
     };
 
-    let addr = grpc_config.url().parse().expect("Invalid gRPC address format");
+    let addr = grpc_config
+        .url()
+        .parse()
+        .expect("Invalid gRPC address format");
     tracing::info!("Starting gRPC LogCollector on {}", addr);
 
     tonic::transport::Server::builder()

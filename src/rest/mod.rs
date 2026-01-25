@@ -1,15 +1,14 @@
 mod auth;
-mod structs;
 mod error;
 mod logs;
+mod structs;
 
 use crate::config::rest::RestConfig;
-use crate::config::Config;
 use crate::db::clickhouse::structs::Log;
 use crate::rest::structs::AppState;
 use crate::server::Server;
-use axum::routing::post;
 use axum::Router;
+use axum::routing::post;
 use dotenvy::dotenv;
 use std::env;
 use std::sync::{Arc, LazyLock};
@@ -24,19 +23,19 @@ pub static SECRET_KEY: LazyLock<Vec<u8>> = LazyLock::new(|| {
         .into_bytes()
 });
 
-pub async fn run_rest(server: Arc<Server>, cfg: RestConfig, log_sender: kanal::AsyncSender<Log>) -> anyhow::Result<()> {
-    let listener = tokio::net::TcpListener::bind(cfg.url())
-        .await
-        .unwrap();
+pub async fn run_rest(
+    server: Arc<Server>,
+    cfg: RestConfig,
+    log_sender: kanal::AsyncSender<Log>,
+) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind(cfg.url()).await.unwrap();
 
     let router = get_router(Arc::clone(&server), log_sender);
 
     let shutdown_signal = server.token.clone();
 
     let rest = axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            shutdown_signal.cancelled().await
-        })
+        .with_graceful_shutdown(async move { shutdown_signal.cancelled().await })
         .into_future();
 
     let deadline = async {
@@ -56,14 +55,11 @@ pub async fn run_rest(server: Arc<Server>, cfg: RestConfig, log_sender: kanal::A
     }
 }
 pub fn get_router(server: Arc<Server>, log_sender: kanal::AsyncSender<Log>) -> Router {
-    let auth_router = Router::new()
-        .route("/auth/login", post(auth::login));
+    let auth_router = Router::new().route("/auth/login", post(auth::login));
 
-    let logs_router = Router::new()
-        .route("/logs", post(logs::add_log));
+    let logs_router = Router::new().route("/logs", post(logs::add_log));
 
-    auth_router.merge(logs_router).with_state(AppState {
-        server,
-        log_sender,
-    })
+    auth_router
+        .merge(logs_router)
+        .with_state(AppState { server, log_sender })
 }

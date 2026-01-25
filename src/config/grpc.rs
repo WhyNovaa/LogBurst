@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GrpcConfig {
-    pub ip: String,
+    pub host: String,
     pub port: String,
 }
 
@@ -14,6 +14,6 @@ impl GrpcConfig {
     }
 
     pub fn url(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+        format!("{}:{}", self.host, self.port)
     }
 }

@@ -1,5 +1,5 @@
 use crate::grpc::log_proto::LogEntry;
-use chrono::Utc;
+use anyhow::anyhow;
 use clickhouse::Row;
 use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 
 #[derive(Debug, Serialize, Deserialize, Row)]
 pub struct Log {
-    #[serde(with = "time::serde::iso8601")]
+    #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub timestamp: OffsetDateTime,
     pub level: String,
     pub service: String,
@@ -16,19 +16,24 @@ pub struct Log {
     pub raw_data: String,
 }
 
-impl From<serde_json::Value> for Log {
-    fn from(mut value: Value) -> Self {
+impl TryFrom<serde_json::Value> for Log {
+    type Error = anyhow::Error;
+
+    fn try_from(mut value: Value) -> Result<Self, Self::Error> {
+        let map = value.as_object_mut().ok_or(anyhow!("Value must be JSON"))?;
+
         let mut take_field = |key: &str| -> Option<String> {
-            value.as_object_mut().and_then(|map| map.remove(key)).and_then(|v| v.as_str().map(|s| s.to_string()))
+            map.remove(key)
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
         };
 
-        Self {
+        Ok(Self {
             timestamp: time::OffsetDateTime::now_utc(),
             level: take_field("level").unwrap_or_else(|| "INFO".to_string()),
             service: take_field("service").unwrap_or_else(|| "unknown".to_string()),
-            message: take_field("service").unwrap_or_default(),
+            message: take_field("message").unwrap_or_default(),
             raw_data: value.to_string(),
-        }
+        })
     }
 }
 
