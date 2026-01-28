@@ -85,7 +85,7 @@ impl ClickHouse {
                     _ = token.cancelled() => {
                         warn!("Shutdown signal received. Draining logs...");
 
-                        rx.close();
+                        let _ = rx.close();
 
                         while let Ok(log) = rx.recv().await {
                             if let Err(e) = inserter.write(&log) {

@@ -1,4 +1,4 @@
-use crate::grpc::log_proto::LogEntry;
+use crate::interfaces::grpc::log_proto::LogEntry;
 use anyhow::anyhow;
 use clickhouse::Row;
 use prost_types::Timestamp;
