@@ -42,7 +42,7 @@ impl LogCollector for LogCollectorService {
                 OffsetDateTime::from_unix_timestamp(ts.seconds)
                     .ok()
                     .map(|odt| odt.replace_nanosecond(ts.nanos as u32).unwrap_or(odt))
-                    .unwrap_or_else(OffsetDateTime::now_utc) // Если конвертация не удалась
+                    .unwrap_or_else(OffsetDateTime::now_utc)
             } else {
                 OffsetDateTime::now_utc()
             };
@@ -52,7 +52,6 @@ impl LogCollector for LogCollectorService {
                 error_count += 1;
             }
 
-            // Обновляем общий счетчик
             /*count_in_session += 1;
             if let Ok(mut total) = self.state.logs_count.lock() {
                 *total += 1;

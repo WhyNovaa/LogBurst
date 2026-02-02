@@ -58,3 +58,10 @@ impl From<LogEntry> for Log {
         }
     }
 }
+
+#[derive(Deserialize, Serialize, Row)]
+pub struct ErrorBucket {
+    #[serde(with = "clickhouse::serde::time::datetime64::millis")]
+    pub time_bucket: OffsetDateTime,
+    pub error_count: u64,
+}

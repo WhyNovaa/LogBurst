@@ -46,6 +46,8 @@ services:
     depends_on:
       - pg
       - clickhouse
+    volumes:
+      - ./keys.toml:/usr/local/bin/keys.toml:ro
 
 volumes:
   clickhouse-data:

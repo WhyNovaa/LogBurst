@@ -6,4 +6,6 @@ CREATE TABLE IF NOT EXISTS logs (
     raw_data String CODEC(ZSTD(1))
 )
 ENGINE = MergeTree()
-ORDER BY timestamp;
+PARTITION BY toYearWeek(timestamp)
+ORDER BY timestamp
+TTL timestamp + INTERVAL 1 MONTH DELETE;

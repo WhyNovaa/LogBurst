@@ -1,9 +1,10 @@
 pub mod structs;
 
 use crate::config::clickhouse::ClickhouseConfig;
-use crate::db::clickhouse::structs::Log;
+use crate::db::clickhouse::structs::{ErrorBucket, Log};
 use clickhouse::Client;
 use kanal::AsyncSender;
+use time::OffsetDateTime;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -28,6 +29,36 @@ impl ClickHouse {
             .with_option("wait_for_async_insert", "0");
 
         Self { client }
+    }
+
+    pub async fn get_errors_count_interval(
+        &self,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
+    ) -> anyhow::Result<Vec<ErrorBucket>> {
+        const REQ: &str = r#"
+            SELECT
+                toStartOfInterval(timestamp, INTERVAL 1 HOUR) AS time_bucket,
+                countIf(level = 'error') AS error_count
+            FROM logs
+            WHERE timestamp >= $1 AND timestamp < $2
+            GROUP BY time_bucket
+            ORDER BY time_bucket
+            WITH FILL
+                FROM $1
+                TO   $2
+            STEP INTERVAL 1 HOUR
+        "#;
+
+        Ok(self
+            .client
+            .query(&REQ)
+            .bind(from)
+            .bind(to)
+            .fetch_all::<ErrorBucket>()
+            .await?
+            .into_iter()
+            .collect::<Vec<_>>())
     }
 
     pub fn start_receiving(&self, token: CancellationToken) -> anyhow::Result<AsyncSender<Log>> {
