@@ -1,11 +1,12 @@
-use crate::interfaces::api::AppState;
-use crate::interfaces::api::middlewares::hmac::{HmacState, hmac_guard};
+use crate::interfaces::api::middlewares::auth::jwt_guard;
+use crate::interfaces::api::middlewares::hmac::{hmac_guard, HmacState};
 use crate::interfaces::api::v1::add_log::add_log;
 use crate::interfaces::api::v1::auth::login;
 use crate::interfaces::api::v1::get_interval_errors_count::get_interval_errors_count;
+use crate::interfaces::api::AppState;
 use crate::security::keystore::KeyStore;
 use axum::routing::{get, post};
-use axum::{Router, middleware};
+use axum::{middleware, Router};
 use std::sync::Arc;
 
 mod add_log;
@@ -16,9 +17,14 @@ mod get_interval_errors_count;
 pub fn routes(key_store: Arc<KeyStore>) -> Router<AppState> {
     let hmac_state = HmacState { key_store };
 
-    Router::new()
+    let hmac_protection = Router::new()
         .route("/logs", post(add_log))
-        .layer(middleware::from_fn_with_state(hmac_state, hmac_guard))
+        .layer(middleware::from_fn_with_state(hmac_state, hmac_guard));
+
+    let auth_protection = Router::new()
         .route("/auth/login", post(login))
         .route("/errors/interval", get(get_interval_errors_count))
+        .layer(middleware::from_fn(jwt_guard));
+
+    hmac_protection.merge(auth_protection)
 }
