@@ -10,7 +10,7 @@ use axum::{middleware, Router};
 use std::sync::Arc;
 
 mod add_log;
-mod auth;
+pub mod auth;
 pub mod dto;
 mod get_interval_errors_count;
 
@@ -21,10 +21,11 @@ pub fn routes(key_store: Arc<KeyStore>) -> Router<AppState> {
         .route("/logs", post(add_log))
         .layer(middleware::from_fn_with_state(hmac_state, hmac_guard));
 
+    let auth = Router::new().route("/auth", post(login));
+
     let auth_protection = Router::new()
-        .route("/auth/login", post(login))
         .route("/errors/interval", get(get_interval_errors_count))
         .layer(middleware::from_fn(jwt_guard));
 
-    hmac_protection.merge(auth_protection)
+    hmac_protection.merge(auth_protection).merge(auth)
 }

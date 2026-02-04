@@ -2,9 +2,9 @@ use crate::interfaces::api::error::{ApiError, ApiResult, IntoApiError};
 use crate::interfaces::api::v1::dto::auth::{Claims, LoginRequest};
 use crate::server::Server;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
+use axum::Json;
 use dotenvy::dotenv;
 use std::env;
 use std::sync::{Arc, LazyLock};
@@ -36,5 +36,7 @@ pub async fn login(
         return Err(ApiError::unauthorized("Wrong username or password"));
     }
 
-    Ok(Claims::new(payload.username).internal()?)
+    Ok(Claims::new(payload.username)
+        .into_jwt(&*SECRET_KEY)
+        .internal()?)
 }
