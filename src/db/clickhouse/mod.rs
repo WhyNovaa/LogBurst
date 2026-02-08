@@ -1,13 +1,13 @@
-pub mod structs;
-
 use crate::config::clickhouse::ClickhouseConfig;
-use crate::db::clickhouse::structs::{ErrorBucket, Log};
+use crate::db::clickhouse::structs::{IntervalInfo, Log};
 use clickhouse::Client;
 use kanal::AsyncSender;
 use time::OffsetDateTime;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
+
+pub mod structs;
 
 const CHANNEL_SIZE: usize = 200_000;
 const INSERTER_MAX_ROWS: u64 = 50_000;
@@ -31,34 +31,64 @@ impl ClickHouse {
         Self { client }
     }
 
-    pub async fn get_errors_count_interval(
+    pub async fn stream_last_logs(
+        &self,
+        tx: kanal::AsyncSender<Log>,
+        limit: u8,
+    ) -> anyhow::Result<()> {
+        const REQ: &str = r#"SELECT ?fields FROM logs ORDER BY timestamp LIMIT ?"#;
+
+        let mut cursor = self.client.query(REQ).bind(limit).fetch::<Log>()?;
+
+        while let Some(log) = cursor.next().await? {
+            tx.send(log).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_levels_count(&self) -> anyhow::Result<u64> {
+        const REQ: &str = r#"SELECT countIf(level = 'error') FROM logs"#;
+
+        Ok(self.client.query(REQ).fetch_one::<u64>().await?)
+    }
+
+    pub async fn get_levels_count_by_interval(
         &self,
         from: OffsetDateTime,
         to: OffsetDateTime,
-    ) -> anyhow::Result<Vec<ErrorBucket>> {
+    ) -> anyhow::Result<Vec<IntervalInfo>> {
         const REQ: &str = r#"
+            WITH
+                toDateTime64(?, 3, 'UTC') AS start_time,
+                toDateTime64(?, 3, 'UTC') AS end_time
             SELECT
-                toStartOfInterval(timestamp, INTERVAL 1 HOUR) AS time_bucket,
-                countIf(level = 'error') AS error_count
+                toDateTime64(toStartOfInterval(timestamp, INTERVAL 1 HOUR), 3, 'UTC') AS time_bucket,
+                countIf(level = 'error') AS error_count,
+                countIf(level = 'warn') AS warning_count,
+                countIf(level = 'info') AS info_count
             FROM logs
-            WHERE timestamp >= $1 AND timestamp < $2
+            WHERE
+                timestamp >= start_time
+                AND timestamp <=  end_time
             GROUP BY time_bucket
             ORDER BY time_bucket
             WITH FILL
-                FROM $1
-                TO   $2
+                FROM  start_time
+                TO    end_time
             STEP INTERVAL 1 HOUR
         "#;
+
+        let from = from.to_utc().unix_timestamp();
+        let to = to.to_utc().unix_timestamp();
 
         Ok(self
             .client
             .query(&REQ)
-            .bind(from)
-            .bind(to)
-            .fetch_all::<ErrorBucket>()
-            .await?
-            .into_iter()
-            .collect::<Vec<_>>())
+            .bind(&from)
+            .bind(&to)
+            .fetch_all::<IntervalInfo>()
+            .await?)
     }
 
     pub fn start_receiving(&self, token: CancellationToken) -> anyhow::Result<AsyncSender<Log>> {
@@ -105,7 +135,7 @@ impl ClickHouse {
 
                     _ = tick_interval.tick() => {
                         if pending_count > 0 {
-                            debug!("Time interval, committing {} logs...", pending_count);
+                            info!("Time interval, committing {} logs...", pending_count);
                             match inserter.commit().await {
                                 Ok(_) => pending_count = 0,
                                 Err(e) => error!("Failed to commit by timer: {}", e),

@@ -1,5 +1,5 @@
 use chrono::Utc;
-use jsonwebtoken::{decode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS logs (
-    timestamp DateTime64(3),
+    timestamp DateTime64(3 , 'UTC'),
     level LowCardinality(String),
     service LowCardinality(String),
     message String CODEC(ZSTD(1)),

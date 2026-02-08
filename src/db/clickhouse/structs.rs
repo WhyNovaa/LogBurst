@@ -1,19 +1,39 @@
-use crate::interfaces::grpc::log_proto::LogEntry;
+use crate::interfaces::grpc::log_proto::{LogEntry, LogLevel};
 use anyhow::anyhow;
 use clickhouse::Row;
 use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use time::OffsetDateTime;
+use validator::{Validate, ValidationError};
 
-#[derive(Debug, Serialize, Deserialize, Row)]
+#[derive(Validate, Debug, Serialize, Deserialize, Row)]
 pub struct Log {
     #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub timestamp: OffsetDateTime,
+    #[validate(custom(function = "validate_level"))]
     pub level: String,
     pub service: String,
     pub message: String,
     pub raw_data: String,
+}
+
+fn validate_level(level: &str) -> Result<(), ValidationError> {
+    match level {
+        "info" | "warn" | "error" => Ok(()),
+        _ => Err(ValidationError::new("Invalid level")),
+    }
+}
+impl From<LogLevel> for String {
+    fn from(value: LogLevel) -> Self {
+        let res = match value {
+            LogLevel::Info => "info",
+            LogLevel::Warn => "warn",
+            LogLevel::Error => "error",
+        };
+
+        res.to_string()
+    }
 }
 
 impl TryFrom<serde_json::Value> for Log {
@@ -29,9 +49,11 @@ impl TryFrom<serde_json::Value> for Log {
 
         Ok(Self {
             timestamp: time::OffsetDateTime::now_utc(),
-            level: take_field("level").unwrap_or_else(|| "INFO".to_string()),
-            service: take_field("service").unwrap_or_else(|| "unknown".to_string()),
-            message: take_field("message").unwrap_or_default(),
+            level: take_field("level").ok_or(anyhow::Error::msg("field level not found in log"))?,
+            service: take_field("service")
+                .ok_or(anyhow::Error::msg("field service not found in log"))?,
+            message: take_field("message")
+                .ok_or(anyhow::Error::msg("field message not found in log"))?,
             raw_data: value.to_string(),
         })
     }
@@ -51,7 +73,7 @@ impl From<LogEntry> for Log {
 
         Self {
             timestamp,
-            level: value.level,
+            level: value.level().into(),
             service: value.service,
             message: value.message,
             raw_data: "".to_string(),
@@ -59,9 +81,11 @@ impl From<LogEntry> for Log {
     }
 }
 
-#[derive(Deserialize, Serialize, Row)]
-pub struct ErrorBucket {
+#[derive(Deserialize, Row)]
+pub struct IntervalInfo {
     #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub time_bucket: OffsetDateTime,
     pub error_count: u64,
+    pub warning_count: u64,
+    pub info_count: u64,
 }

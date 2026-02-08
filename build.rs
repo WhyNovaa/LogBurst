@@ -1,5 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = tonic_build::configure();
+    let config = tonic_build::configure();
 
     config.compile_protos(
         &["src/interfaces/grpc/proto/log.proto"],

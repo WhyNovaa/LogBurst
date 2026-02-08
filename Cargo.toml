@@ -35,10 +35,10 @@ thiserror = "2.0.12"
 axum = { version = "0.8.3", features = ["macros"] }
 anyhow = "1.0.100"
 jsonwebtoken = "9.3.1"
-
+validator = { version = "0.20.0", features = ["derive"] }
 
 # time
-chrono = "0.4.40"
+chrono = { version = "0.4.40", features = [] }
 time = { version = "0.3", features = ["serde-human-readable", "macros"] }
 
 # grpc
@@ -54,7 +54,8 @@ blake3 = "1.8.3"
 kanal = { version = "0.1.1", features = ["async"] }
 arc-swap = "1.8.0"
 toml = "0.9.11+spec-1.1.0"
-
+futures = "0.3.31"
+async-stream = "0.3.6"
 
 [build-dependencies]
 tonic-build = "0.13.0"
