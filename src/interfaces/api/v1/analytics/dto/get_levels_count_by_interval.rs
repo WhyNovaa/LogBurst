@@ -11,18 +11,20 @@ pub struct IntervalQuery {
 }
 
 #[derive(Serialize)]
-pub struct ErrorBucket {
+pub struct LevelsCountIntervalBucket {
     pub time_bucket: OffsetDateTime,
     pub error_count: u64,
-    pub warning_count: u64,
+    pub warn_count: u64,
     pub info_count: u64,
 }
-impl ErrorBucket {
-    pub fn from_ref(err_bucket: &crate::db::clickhouse::structs::IntervalInfo) -> Self {
+impl LevelsCountIntervalBucket {
+    pub fn from_ref(
+        err_bucket: &crate::db::clickhouse::structs::LevelsCountIntervalBucket,
+    ) -> Self {
         Self {
             time_bucket: err_bucket.time_bucket,
             error_count: err_bucket.error_count,
-            warning_count: err_bucket.warning_count,
+            warn_count: err_bucket.warn_count,
             info_count: err_bucket.info_count,
         }
     }

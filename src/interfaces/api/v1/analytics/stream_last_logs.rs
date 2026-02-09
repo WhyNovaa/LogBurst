@@ -1,20 +1,35 @@
 use crate::db::clickhouse::structs::Log;
 use crate::interfaces::api::error::ApiResult;
-use crate::interfaces::api::v1::analytics::dto;
-use crate::server::Server;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::response::Sse;
 use futures::Stream;
 use std::convert::Infallible;
-use std::sync::Arc;
+use tokio::sync::broadcast::error::RecvError;
+use tracing::log::info;
 
 pub async fn stream_last_logs(
-    State(server): State<Arc<Server>>,
-    Query(query): Query<dto::stream_last_logs::Query>,
+    State(live_sender): State<tokio::sync::broadcast::Sender<Log>>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>>> {
-    let (tx, rx) = kanal::bounded_async::<Log>(10);
+    let (tx, rx) = kanal::bounded_async::<Log>(15);
 
-    tokio::spawn(async move { server.logs_db.stream_last_logs(tx, query.limit).await });
+    let mut live_rx = live_sender.subscribe();
+    tokio::spawn(async move {
+        loop {
+            match live_rx.recv().await {
+                Ok(log) => {
+                    if tx.send(log).await.is_err() {
+                        break;
+                    }
+                }
+                Err(e) => match e {
+                    RecvError::Closed => break,
+                    RecvError::Lagged(lagged) => {
+                        info!("Lagged log entries: {:?}", lagged);
+                    }
+                },
+            }
+        }
+    });
 
     let stream = async_stream::stream! {
         while let Ok(log) = rx.recv().await {

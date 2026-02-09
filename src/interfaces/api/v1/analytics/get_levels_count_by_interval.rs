@@ -1,17 +1,15 @@
 use crate::interfaces::api::error::{ApiResult, IntoApiError};
-use crate::interfaces::api::v1::analytics::dto::get_interval_levels_count::{
-    ErrorBucket, IntervalQuery,
-};
+use crate::interfaces::api::v1::analytics::dto;
+use crate::interfaces::api::v1::analytics::dto::get_levels_count_by_interval::LevelsCountIntervalBucket;
 use crate::server::Server;
-use axum::Json;
 use axum::extract::{Query, State};
-use axum::response::IntoResponse;
+use axum::Json;
 use std::sync::Arc;
 
 pub async fn get_interval_levels_count(
     State(server): State<Arc<Server>>,
-    Query(query): Query<IntervalQuery>,
-) -> ApiResult<impl IntoResponse> {
+    Query(query): Query<dto::get_levels_count_by_interval::IntervalQuery>,
+) -> ApiResult<Json<Vec<dto::get_levels_count_by_interval::LevelsCountIntervalBucket>>> {
     Ok(Json(
         server
             .logs_db
@@ -19,7 +17,7 @@ pub async fn get_interval_levels_count(
             .await
             .internal()?
             .iter()
-            .map(ErrorBucket::from_ref)
+            .map(LevelsCountIntervalBucket::from_ref)
             .collect::<Vec<_>>(),
     ))
 }

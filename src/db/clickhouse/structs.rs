@@ -7,7 +7,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use validator::{Validate, ValidationError};
 
-#[derive(Validate, Debug, Serialize, Deserialize, Row)]
+#[derive(Validate, Debug, Clone, Serialize, Deserialize, Row)]
 pub struct Log {
     #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub timestamp: OffsetDateTime,
@@ -82,10 +82,17 @@ impl From<LogEntry> for Log {
 }
 
 #[derive(Deserialize, Row)]
-pub struct IntervalInfo {
+pub struct LevelsCountIntervalBucket {
     #[serde(with = "clickhouse::serde::time::datetime64::millis")]
     pub time_bucket: OffsetDateTime,
     pub error_count: u64,
-    pub warning_count: u64,
+    pub warn_count: u64,
+    pub info_count: u64,
+}
+
+#[derive(Deserialize, Row)]
+pub struct LevelsCountBucket {
+    pub error_count: u64,
+    pub warn_count: u64,
     pub info_count: u64,
 }

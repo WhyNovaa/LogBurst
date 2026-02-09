@@ -5,7 +5,7 @@ use crate::security::keystore::KeyStore;
 use crate::security::update_key_store;
 use crate::server::Server;
 use std::sync::Arc;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod config;
 mod db;
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 
     let server = Arc::new(Server::new(Arc::clone(&cfg)).await);
 
-    let log_sender = server.logs_db.start_receiving(server.token.clone())?;
+    let (log_sender, live_log_receiver) = server.logs_db.start_receiving(server.token.clone())?;
 
     let key_store = Arc::new(KeyStore::new(KeyStore::load()?));
 
@@ -46,6 +46,7 @@ async fn main() -> anyhow::Result<()> {
         Arc::clone(&server),
         cfg.rest_cfg.clone(),
         log_sender.clone(),
+        live_log_receiver,
         key_store,
     ));
 
