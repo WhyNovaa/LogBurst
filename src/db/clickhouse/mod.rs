@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 pub mod structs;
 
 const CHANNEL_SIZE: usize = 200_000;
-const LIVE_CHANNEL_SIZE: usize = 500;
+const LIVE_CHANNEL_SIZE: usize = 15;
 const INSERTER_MAX_ROWS: u64 = 50_000;
 const INSERTER_MAX_BYTES: u64 = 10 * 1024 * 1024;
 const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
@@ -36,24 +36,40 @@ impl ClickHouse {
         &self,
         from: OffsetDateTime,
         to: OffsetDateTime,
+        service_opt: Option<String>,
+        level_opt: Option<String>,
         tx: kanal::AsyncSender<Log>,
     ) -> anyhow::Result<()> {
-        const REQ: &str = r#"
+        let mut req= r#"
             SELECT
                 ?fields
             FROM logs
             WHERE
                 timestamp >= toDateTime64(?, 3, 'UTC') AND
-                timestamp <= toDateTime64(?, 3, 'UTC')
-        "#;
+                timestamp <= toDateTime64(?, 3, 'UTC')"#.to_string();
+
+        if service_opt.is_some() {
+            req.push_str(" AND service = ?");
+        }
+        if level_opt.is_some() {
+            req.push_str(" AND level = ?");
+        }
 
         let from = from.to_utc().unix_timestamp();
         let to = to.to_utc().unix_timestamp();
         
         info!("Querying logs from {} to {}", from, to);
 
-        let mut cursor = self.client.query(REQ).bind(from).bind(to).fetch::<Log>()?;
+        let mut query = self.client.query(req.as_str()).bind(from).bind(to);
 
+        if let Some(service) = service_opt {
+            query = query.bind(service);
+        }
+        if let Some(level) = level_opt {
+            query = query.bind(level);
+        }
+
+        let mut cursor = query.fetch::<Log>()?;
         while let Some(log) = cursor.next().await? {
             tx.send(log).await?;
         }

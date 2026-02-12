@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 pub async fn get_logs_by_interval(
     State(server): State<Arc<Server>>,
-    Query(query): Query<dto::get_logs_by_interval::IntervalQuery>,
+    Query(query): Query<dto::get_logs_by_interval::Filters>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>>> {
     let (tx, rx) = kanal::bounded_async::<Log>(100);
 
@@ -18,7 +18,7 @@ pub async fn get_logs_by_interval(
     tokio::spawn(async move {
         if let Err(e) = server
             .logs_db
-            .get_logs_by_interval(query.from, query.to, tx)
+            .get_logs_by_interval(query.interval.from, query.interval.to, query.service, query.level, tx)
             .await {
             tracing::error!("Error in db: {}", e)
         }

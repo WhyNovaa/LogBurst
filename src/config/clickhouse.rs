@@ -16,6 +16,6 @@ impl ClickhouseConfig {
     }
 
     pub fn url(&self) -> String {
-        format!("http://{}:{}", self.host, self.port)
+        format!("{}:{}", self.host, self.port)
     }
 }
