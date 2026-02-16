@@ -5,7 +5,7 @@ use crate::security::keystore::KeyStore;
 use crate::security::update_key_store;
 use crate::server::Server;
 use std::sync::Arc;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod db;

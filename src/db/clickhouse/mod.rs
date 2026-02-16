@@ -27,7 +27,7 @@ impl ClickHouse {
             .with_password(cfg.password)
             .with_option("max_execution_time", "60")
             .with_option("async_insert", "1")
-            .with_option("wait_for_async_insert", "0");
+            .with_option("wait_for_async_insert", "1");
 
         Self { client }
     }
@@ -40,13 +40,14 @@ impl ClickHouse {
         level_opt: Option<String>,
         tx: kanal::AsyncSender<Log>,
     ) -> anyhow::Result<()> {
-        let mut req= r#"
+        let mut req = r#"
             SELECT
                 ?fields
             FROM logs
             WHERE
                 timestamp >= toDateTime64(?, 3, 'UTC') AND
-                timestamp <= toDateTime64(?, 3, 'UTC')"#.to_string();
+                timestamp <= toDateTime64(?, 3, 'UTC')"#
+            .to_string();
 
         if service_opt.is_some() {
             req.push_str(" AND service = ?");
@@ -57,7 +58,7 @@ impl ClickHouse {
 
         let from = from.to_utc().unix_timestamp();
         let to = to.to_utc().unix_timestamp();
-        
+
         info!("Querying logs from {} to {}", from, to);
 
         let mut query = self.client.query(req.as_str()).bind(from).bind(to);
@@ -136,19 +137,15 @@ impl ClickHouse {
     ) -> anyhow::Result<(AsyncSender<Log>, tokio::sync::broadcast::Sender<Log>)> {
         let mut inserter = self
             .client
-            .inserter::<Log>("logs")?
-            .with_max_rows(INSERTER_MAX_ROWS)
-            .with_max_bytes(INSERTER_MAX_BYTES);
+            .inserter::<Log>("logs")?;
 
         let (tx, rx) = kanal::bounded_async::<Log>(CHANNEL_SIZE);
         let (live_tx, _) = tokio::sync::broadcast::channel::<Log>(LIVE_CHANNEL_SIZE);
         let mut tick_interval = interval(FLUSH_INTERVAL);
-
         tokio::spawn({
             let live_tx = live_tx.clone();
             async move {
                 let mut pending_count = 0;
-
                 loop {
                     tokio::select! {
                         msg = rx.recv() => {
@@ -168,8 +165,9 @@ impl ClickHouse {
 
                                     if pending_count >= INSERTER_MAX_ROWS {
                                         info!("Batch limit reached, committing {} logs...", pending_count);
-                                        match inserter.commit().await {
-                                            Ok(_) => {
+                                        match inserter.force_commit().await {
+                                            Ok(res) => {
+                                                info!("{} rows were written", res.rows);
                                                 pending_count = 0;
                                                 tick_interval.reset();
                                             }
@@ -177,15 +175,21 @@ impl ClickHouse {
                                         }
                                     }
                                 }
-                                Err(_) => {}
+                                Err(e) => {
+                                    error!("Failed to receive log: {}", e);
+                                }
                             }
                         }
 
                         _ = tick_interval.tick() => {
                             if pending_count > 0 {
                                 info!("Time interval, committing {} logs...", pending_count);
-                                match inserter.commit().await {
-                                    Ok(_) => pending_count = 0,
+                                match inserter.force_commit().await {
+                                    Ok(res) => {
+                                        info!("{} rows were written", res.rows);
+                                        pending_count = 0;
+                                        tick_interval.reset();
+                                    }
                                     Err(e) => error!("Failed to commit by timer: {}", e),
                                 }
                             }

@@ -1,8 +1,8 @@
 use crate::interfaces::api::error::{ApiResult, IntoApiError};
 use crate::interfaces::api::v1::analytics::dto;
 use crate::server::Server;
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use std::sync::Arc;
 
 pub async fn get_levels_count(

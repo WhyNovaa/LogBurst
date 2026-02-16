@@ -2,8 +2,8 @@ use crate::interfaces::api::error::{ApiResult, IntoApiError};
 use crate::interfaces::api::v1::analytics::dto;
 use crate::interfaces::api::v1::analytics::dto::get_levels_count_by_interval::LevelsCountIntervalBucket;
 use crate::server::Server;
-use axum::extract::{Query, State};
 use axum::Json;
+use axum::extract::{Query, State};
 use std::sync::Arc;
 
 pub async fn get_interval_levels_count(

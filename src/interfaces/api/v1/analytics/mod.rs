@@ -1,10 +1,10 @@
+use crate::interfaces::api::AppState;
 use crate::interfaces::api::v1::analytics::get_levels_count::get_levels_count;
 use crate::interfaces::api::v1::analytics::get_levels_count_by_interval::get_interval_levels_count;
 use crate::interfaces::api::v1::analytics::get_logs_by_interval::get_logs_by_interval;
 use crate::interfaces::api::v1::analytics::stream_last_logs::stream_last_logs;
-use crate::interfaces::api::AppState;
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 
 mod dto;
 mod get_levels_count;

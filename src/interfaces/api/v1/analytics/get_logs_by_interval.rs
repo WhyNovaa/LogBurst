@@ -18,11 +18,17 @@ pub async fn get_logs_by_interval(
     tokio::spawn(async move {
         if let Err(e) = server
             .logs_db
-            .get_logs_by_interval(query.interval.from, query.interval.to, query.service, query.level, tx)
-            .await {
+            .get_logs_by_interval(
+                query.interval.from,
+                query.interval.to,
+                query.service,
+                query.level,
+                tx,
+            )
+            .await
+        {
             tracing::error!("Error in db: {}", e)
-        }
-        else {
+        } else {
             tracing::info!("DB connection closed");
         }
     });
