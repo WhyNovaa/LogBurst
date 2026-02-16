@@ -9,7 +9,7 @@ export interface LoginRequest {
 }
 
 export interface Log {
-  timestamp: string;
+  timestamp: string | number;
   level: 'info' | 'warn' | 'error';
   service: string;
   message: string;
@@ -23,7 +23,7 @@ export interface LevelsCountBucket {
 }
 
 export interface LevelsCountIntervalBucket {
-  time_bucket: string;
+  time_bucket: string | number;
   error_count: number;
   warn_count: number;
   info_count: number;

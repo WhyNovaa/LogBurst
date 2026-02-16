@@ -16,9 +16,10 @@ import { parseBackendDate } from '../../utils/dateUtils';
 interface AnalyticsChartProps {
   data: LevelsCountIntervalBucket[];
   loading: boolean;
+  timeRange?: string;
 }
 
-export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading }) => {
+export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading, timeRange = '24h' }) => {
   if (loading) {
     return (
       <div className="h-80 bg-white rounded-lg border border-beige-300 shadow-sm p-4 flex items-center justify-center">
@@ -54,6 +55,9 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading })
       if (!tick) return '';
       // If it's a timestamp
       if (typeof tick === 'number') {
+           if (timeRange === '7d') {
+               return format(new Date(tick), 'MMM dd');
+           }
            return format(new Date(tick), 'HH:mm');
       }
       return String(tick);
@@ -66,9 +70,20 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading })
       return 'Invalid Date';
   };
 
+  const getTitle = () => {
+      switch(timeRange) {
+          case '1h': return 'Log Volume (Last Hour)';
+          case '6h': return 'Log Volume (Last 6 Hours)';
+          case '12h': return 'Log Volume (Last 12 Hours)';
+          case '24h': return 'Log Volume (Last 24 Hours)';
+          case '7d': return 'Log Volume (Last 7 Days)';
+          default: return 'Log Volume Over Time';
+      }
+  }
+
   return (
     <div className="h-96 bg-white rounded-lg border border-beige-300 shadow-sm p-6 mb-6">
-      <h3 className="text-lg font-bold text-primary-900 mb-4">Log Volume Over Time</h3>
+      <h3 className="text-lg font-bold text-primary-900 mb-4">{getTitle()}</h3>
       <div className="h-full w-full pb-6">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
