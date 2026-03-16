@@ -1,3 +1,10 @@
+export type TimestampValue =
+  | string
+  | number
+  | {
+      timestamp: string | number;
+    };
+
 export interface User {
   username: string;
   token: string;
@@ -9,7 +16,7 @@ export interface LoginRequest {
 }
 
 export interface Log {
-  timestamp: string | number;
+  timestamp: TimestampValue;
   level: 'info' | 'warn' | 'error';
   service: string;
   message: string;
@@ -23,7 +30,7 @@ export interface LevelsCountBucket {
 }
 
 export interface LevelsCountIntervalBucket {
-  time_bucket: string | number;
+  time_bucket: TimestampValue;
   error_count: number;
   warn_count: number;
   info_count: number;
@@ -36,5 +43,6 @@ export interface IntervalQuery {
 
 export interface LogsFilter extends IntervalQuery {
   service?: string;
-  level?: string;
+  level?: Log['level'] | '';
+  limit: number;
 }

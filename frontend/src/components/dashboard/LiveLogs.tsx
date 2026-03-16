@@ -4,73 +4,73 @@ import { getLiveLogsUrl } from '../../api/analytics';
 import { clsx } from 'clsx';
 import { Pause, Play, Terminal } from 'lucide-react';
 import { format } from 'date-fns';
+import { isAbortError } from '../../api/fetch';
 import { parseBackendDate } from '../../utils/dateUtils';
+import { consumeSse } from '../../utils/sse';
+
+const MAX_LIVE_LOGS = 100;
 
 export const LiveLogs: React.FC = () => {
   const [logs, setLogs] = useState<Log[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused) {
+      return;
+    }
     
     const abortController = new AbortController();
-    
-    const connect = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(getLiveLogsUrl(), {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: 'text/event-stream',
-            },
-            signal: abortController.signal,
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        setIsConnected(true);
-        
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        
-        if (!reader) return;
-
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n\n');
-            
-            lines.forEach(line => {
-                if (line.startsWith('data: ')) {
-                    try {
-                        const data = JSON.parse(line.substring(6));
-                        setLogs(prev => [...prev, data].slice(-100)); // Keep last 100
-                    } catch (e) {
-                        // ignore parse error
-                    }
-                }
-            });
-        }
-      } catch (err) {
-        console.error('SSE Error:', err);
-        setIsConnected(false);
-        if (!abortController.signal.aborted) {
-            setTimeout(connect, 3000); // Retry
-        }
+    const clearReconnectTimeout = () => {
+      if (reconnectTimeoutRef.current !== null) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
     };
 
-    connect();
+    const scheduleReconnect = () => {
+      clearReconnectTimeout();
+      reconnectTimeoutRef.current = window.setTimeout(() => {
+        void connect();
+      }, 3000);
+    };
+
+    const connect = async (): Promise<void> => {
+      try {
+        await consumeSse<Log>(getLiveLogsUrl(), {
+          signal: abortController.signal,
+          onOpen: () => setIsConnected(true),
+          onMessage: (log) => {
+            setLogs((previousLogs) => [...previousLogs, log].slice(-MAX_LIVE_LOGS));
+          },
+          onParseError: (error) => {
+            console.error('Live logs parse error:', error);
+          },
+        });
+
+        if (!abortController.signal.aborted) {
+          setIsConnected(false);
+          scheduleReconnect();
+        }
+      } catch (error: unknown) {
+        if (isAbortError(error)) {
+          return;
+        }
+
+        console.error('Live logs connection error:', error);
+        setIsConnected(false);
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
 
     return () => {
-        abortController.abort();
-        setIsConnected(false);
+      abortController.abort();
+      clearReconnectTimeout();
+      setIsConnected(false);
     };
   }, [isPaused]);
 
@@ -81,6 +81,7 @@ export const LiveLogs: React.FC = () => {
   }, [logs, isPaused]);
 
   const togglePause = () => setIsPaused(!isPaused);
+  const connectionIndicatorActive = isConnected && !isPaused;
 
   return (
     <div className="bg-neutral-900 rounded-lg shadow-lg overflow-hidden flex flex-col h-96 border border-neutral-700">
@@ -90,7 +91,7 @@ export const LiveLogs: React.FC = () => {
           <h3 className="text-neutral-200 font-mono text-sm font-bold">Live Logs</h3>
           <span className={clsx(
             "w-2 h-2 rounded-full ml-2",
-            isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"
+            connectionIndicatorActive ? "bg-green-500 animate-pulse" : "bg-red-500"
           )} />
         </div>
         <button
@@ -110,11 +111,8 @@ export const LiveLogs: React.FC = () => {
           <div key={index} className="flex gap-2 hover:bg-white/5 p-0.5 rounded">
             <span className="text-neutral-500 whitespace-nowrap">
               {(() => {
-                try {
-                  return format(parseBackendDate(log.timestamp), 'HH:mm:ss.SSS');
-                } catch {
-                  return '--:--:--';
-                }
+                const timestamp = parseBackendDate(log.timestamp);
+                return timestamp ? format(timestamp, 'HH:mm:ss.SSS') : '--:--:--';
               })()}
             </span>
             <span className={clsx(

@@ -23,6 +23,7 @@ pub async fn get_logs_by_interval(
                 query.interval.to,
                 query.service,
                 query.level,
+                query.limit,
                 tx,
             )
             .await

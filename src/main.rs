@@ -5,7 +5,9 @@ use crate::security::keystore::KeyStore;
 use crate::security::update_key_store;
 use crate::server::Server;
 use std::sync::Arc;
-use tracing_subscriber::{EnvFilter, fmt};
+use tokio::task::JoinSet;
+use tracing::{error, info};
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod config;
 mod db;
@@ -40,9 +42,12 @@ async fn main() -> anyhow::Result<()> {
 
     let key_store = Arc::new(KeyStore::new(KeyStore::load()?));
 
-    let update_hashers_task = tokio::spawn(update_key_store(key_store.clone()));
+    let mut supervisor: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-    let rest_task = tokio::spawn(run_rest(
+    supervisor.spawn(update_key_store(server.token.clone(), key_store.clone()));
+
+    // Rest
+    supervisor.spawn(run_rest(
         Arc::clone(&server),
         cfg.rest_cfg.clone(),
         log_sender.clone(),
@@ -50,13 +55,27 @@ async fn main() -> anyhow::Result<()> {
         key_store,
     ));
 
-    let grpc_task = tokio::spawn(run_grpc_server(
+    // gRPC
+    supervisor.spawn(run_grpc_server(
         Arc::clone(&server),
         cfg.grpc_config.clone(),
         log_sender,
     ));
 
-    tokio::join!(update_hashers_task, rest_task, grpc_task);
+    while let Some(res) = supervisor.join_next().await {
+        match res {
+            Ok(Ok(())) => {
+                info!("Server shutdown");
+            }
+            Ok(Err(err)) => {
+                error!("Catched error: {err}");
+            }
+            Err(join_err) => {
+                error!("Join error: {join_err}");
+            }
+        }
+        server.token.cancel();
+    }
 
     Ok(())
 }

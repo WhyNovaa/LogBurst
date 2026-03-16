@@ -38,6 +38,7 @@ impl ClickHouse {
         to: OffsetDateTime,
         service_opt: Option<String>,
         level_opt: Option<String>,
+        limit: u32,
         tx: kanal::AsyncSender<Log>,
     ) -> anyhow::Result<()> {
         let mut req = r#"
@@ -56,6 +57,8 @@ impl ClickHouse {
             req.push_str(" AND level = ?");
         }
 
+        req.push_str(" ORDER BY timestamp LIMIT ?");
+
         let from = from.to_utc().unix_timestamp();
         let to = to.to_utc().unix_timestamp();
 
@@ -70,12 +73,24 @@ impl ClickHouse {
             query = query.bind(level);
         }
 
+        let limit = limit.min(5000);
+        let query = query.bind(limit);
+
         let mut cursor = query.fetch::<Log>()?;
         while let Some(log) = cursor.next().await? {
             tx.send(log).await?;
         }
 
         Ok(())
+    }
+
+    pub async fn get_services(&self) -> anyhow::Result<Vec<String>> {
+        const REQ: &str = r#"
+            SELECT DISTINCT service
+            FROM logs
+        "#;
+
+        Ok(self.client.query(REQ).fetch_all().await?)
     }
 
     pub async fn get_levels_count(&self) -> anyhow::Result<LevelsCountBucket> {
@@ -101,7 +116,9 @@ impl ClickHouse {
         const REQ: &str = r#"
             WITH
                 toDateTime64(?, 3, 'UTC') AS start_time,
-                toDateTime64(?, 3, 'UTC') AS end_time
+                toDateTime64(?, 3, 'UTC') AS end_time,
+                toDateTime64(toStartOfHour(start_time), 3, 'UTC') AS start_bucket,
+                toDateTime64(toStartOfHour(end_time), 3, 'UTC') AS end_bucket
             SELECT
                 toDateTime64(toStartOfInterval(timestamp, INTERVAL 1 HOUR), 3, 'UTC') AS time_bucket,
                 countIf(level = 'error') AS error_count,
@@ -114,8 +131,8 @@ impl ClickHouse {
             GROUP BY time_bucket
             ORDER BY time_bucket
             WITH FILL
-                FROM  start_time
-                TO    end_time
+                FROM  start_bucket
+                TO    end_bucket
             STEP INTERVAL 1 HOUR
         "#;
 
@@ -135,9 +152,7 @@ impl ClickHouse {
         &self,
         token: CancellationToken,
     ) -> anyhow::Result<(AsyncSender<Log>, tokio::sync::broadcast::Sender<Log>)> {
-        let mut inserter = self
-            .client
-            .inserter::<Log>("logs")?;
+        let mut inserter = self.client.inserter::<Log>("logs")?;
 
         let (tx, rx) = kanal::bounded_async::<Log>(CHANNEL_SIZE);
         let (live_tx, _) = tokio::sync::broadcast::channel::<Log>(LIVE_CHANNEL_SIZE);

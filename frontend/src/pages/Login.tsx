@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { Lock, User } from 'lucide-react';
@@ -19,12 +20,12 @@ export const Login: React.FC = () => {
       const token = await login({ username, password });
       localStorage.setItem('token', token);
       navigate('/');
-    } catch (err: any) {
-      if (err.response?.status === 401) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
         setError('Invalid username or password');
-      } else if (err.response?.status === 500) {
+      } else if (axios.isAxiosError(error) && error.response?.status === 500) {
         setError('Internal Server Error. Please try again later.');
-      } else if (!err.response) {
+      } else if (axios.isAxiosError(error) && !error.response) {
         setError('Unable to connect to server. Is it running?');
       } else {
         setError('Login failed. Please try again.');

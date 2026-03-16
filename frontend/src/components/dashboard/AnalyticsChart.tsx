@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  AreaChart,
-  Area,
+  Bar,
+  BarChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -19,6 +19,10 @@ interface AnalyticsChartProps {
   timeRange?: string;
 }
 
+type ChartDataPoint = LevelsCountIntervalBucket & {
+  timestamp: number;
+};
+
 export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading, timeRange = '24h' }) => {
   if (loading) {
     return (
@@ -28,45 +32,37 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading, t
     );
   }
 
-  const formattedData = data.map(item => {
-    try {
-        const date = parseBackendDate(item.time_bucket);
-        return {
-            ...item,
-            // Use timestamp (number) as unique key for X-axis to avoid merging duplicate HH:mm strings
-            timestamp: date.getTime(),
-            // Ensure counts are numbers
-            error_count: Number(item.error_count),
-            warn_count: Number(item.warn_count),
-            info_count: Number(item.info_count),
-        };
-    } catch (e) {
-        return {
-            ...item,
-            timestamp: 0,
-            error_count: 0,
-            warn_count: 0,
-            info_count: 0,
-        };
-    }
+  const formattedData: ChartDataPoint[] = data.map((item) => {
+    const date = parseBackendDate(item.time_bucket);
+
+    return {
+      ...item,
+      timestamp: date?.getTime() ?? 0,
+      error_count: Number(item.error_count) || 0,
+      warn_count: Number(item.warn_count) || 0,
+      info_count: Number(item.info_count) || 0,
+    };
   });
 
-  const formatXAxis = (tick: any) => {
-      if (!tick) return '';
-      // If it's a timestamp
-      if (typeof tick === 'number') {
-           if (timeRange === '7d') {
-               return format(new Date(tick), 'MMM dd');
-           }
-           return format(new Date(tick), 'HH:mm');
+  const formatXAxis = (tick: number | string): string => {
+      const timestamp = Number(tick);
+      if (!Number.isFinite(timestamp) || timestamp === 0) return '';
+
+      if (timeRange === '7d') {
+          return format(new Date(timestamp), 'MMM dd');
       }
-      return String(tick);
+
+      return format(new Date(timestamp), 'HH:mm');
   };
 
-  const formatTooltipLabel = (label: any) => {
-      if (typeof label === 'number' && label !== 0) {
-        return format(new Date(label), 'MMM dd, HH:mm');
+  const formatTooltipLabel = (label: React.ReactNode): string => {
+      if (typeof label === 'number' || typeof label === 'string') {
+        const timestamp = Number(label);
+        if (Number.isFinite(timestamp) && timestamp !== 0) {
+          return format(new Date(timestamp), 'MMM dd, HH:mm');
+        }
       }
+
       return 'Invalid Date';
   };
 
@@ -86,7 +82,7 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading, t
       <h3 className="text-lg font-bold text-primary-900 mb-4">{getTitle()}</h3>
       <div className="h-full w-full pb-6">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
+          <BarChart
             data={formattedData}
             margin={{
               top: 10,
@@ -114,31 +110,32 @@ export const AnalyticsChart: React.FC<AnalyticsChartProps> = ({ data, loading, t
               labelFormatter={formatTooltipLabel}
             />
             <Legend />
-            <Area
-              type="monotone"
+            <Bar
               dataKey="error_count"
               name="Errors"
-              stackId="1"
-              stroke="#dc2626"
+              stackId="events"
               fill="#fecaca"
+              stroke="#dc2626"
+              barSize={24}
             />
-            <Area
-              type="monotone"
+            <Bar
               dataKey="warn_count"
               name="Warnings"
-              stackId="1"
-              stroke="#d97706"
+              stackId="events"
               fill="#fde68a"
+              stroke="#d97706"
+              barSize={24}
             />
-            <Area
-              type="monotone"
+            <Bar
               dataKey="info_count"
               name="Info"
-              stackId="1"
-              stroke="#2563eb"
+              stackId="events"
               fill="#bfdbfe"
+              stroke="#2563eb"
+              radius={[4, 4, 0, 0]}
+              barSize={24}
             />
-          </AreaChart>
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

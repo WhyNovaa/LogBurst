@@ -1,29 +1,23 @@
+use crate::config::rest::ServerConfig;
 use crate::interfaces::api::error::{ApiError, ApiResult, IntoApiError};
 use crate::interfaces::api::v1::dto::auth::{Claims, LoginRequest};
 use crate::server::Server;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use dotenvy::dotenv;
-use std::env;
-use std::sync::{Arc, LazyLock};
-
-pub static SECRET_KEY: LazyLock<Vec<u8>> = LazyLock::new(|| {
-    dotenv().ok();
-    env::var("SECRET_KEY")
-        .expect("SECRET_KEY must be set in .env")
-        .into_bytes()
-});
+use axum::{Extension, Json};
+use std::sync::Arc;
 
 pub async fn login(
     State(server): State<Arc<Server>>,
+    Extension(cfg): Extension<Arc<ServerConfig>>,
     Json(payload): Json<LoginRequest>,
 ) -> ApiResult<impl IntoResponse> {
     let db_user = server
         .auth_pool
         .get_user_by_username(&payload.username)
-        .await?
+        .await
+        .internal()?
         .ok_or_else(|| ApiError::unauthorized("Wrong username or password"))?;
 
     let parsed_hash = PasswordHash::new(&db_user.hashed_password).internal()?;
@@ -37,6 +31,6 @@ pub async fn login(
     }
 
     Ok(Claims::new(payload.username)
-        .into_jwt(&*SECRET_KEY)
+        .into_jwt(&cfg.secret_key)
         .internal()?)
 }

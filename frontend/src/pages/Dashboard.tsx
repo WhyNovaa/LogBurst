@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StatsOverview } from '../components/dashboard/StatsOverview';
 import { AnalyticsChart } from '../components/dashboard/AnalyticsChart';
 import { LiveLogs } from '../components/dashboard/LiveLogs';
@@ -28,7 +28,7 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const now = new Date();
@@ -46,13 +46,19 @@ export const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh stats every 30s
-    return () => clearInterval(interval);
-  }, [timeRange]); // Re-fetch when timeRange changes
+    void fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void fetchData();
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [fetchData]);
 
   return (
     <div className="space-y-6 pb-10">
@@ -76,7 +82,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <button 
-                onClick={fetchData} 
+                onClick={() => void fetchData()} 
                 className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-800 transition"
             >
                 <RefreshCcw size={14} className={loading ? "animate-spin" : ""} />

@@ -5,9 +5,9 @@ use time::OffsetDateTime;
 pub struct Filters {
     #[serde(flatten)]
     pub interval: Interval,
-    #[serde()]
     pub service: Option<String>,
     pub level: Option<String>,
+    pub limit: u32,
 }
 
 #[derive(Debug, Deserialize)]

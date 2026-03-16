@@ -1,5 +1,10 @@
 import { apiClient } from './client';
-import type { LevelsCountBucket, LevelsCountIntervalBucket, IntervalQuery } from '../types';
+import type {
+  IntervalQuery,
+  LevelsCountBucket,
+  LevelsCountIntervalBucket,
+  LogsFilter,
+} from '../types';
 
 export const getLevelsCount = async (): Promise<LevelsCountBucket> => {
   const response = await apiClient.get<LevelsCountBucket>('/analytics/levels/count');
@@ -11,14 +16,28 @@ export const getLevelsIntervals = async (params: IntervalQuery): Promise<LevelsC
   return response.data;
 };
 
+export const getServices = async (): Promise<string[]> => {
+  const response = await apiClient.get<string[]>('/analytics/services');
+  return response.data;
+};
+
 export const getLiveLogsUrl = () => '/v1/analytics/last';
 
-export const getHistoricalLogsUrl = (params: any) => {
-    const searchParams = new URLSearchParams();
-    searchParams.append('from', params.from);
-    searchParams.append('to', params.to);
-    if (params.service) searchParams.append('service', params.service);
-    if (params.level) searchParams.append('level', params.level);
-    
-    return `/v1/analytics/logs/interval?${searchParams.toString()}`;
-}
+export const getHistoricalLogsUrl = (params: LogsFilter): string => {
+  const searchParams = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    limit: params.limit.toString(),
+  });
+
+  const service = params.service?.trim();
+  if (service) {
+    searchParams.append('service', service);
+  }
+
+  if (params.level) {
+    searchParams.append('level', params.level);
+  }
+
+  return `/v1/analytics/logs/interval?${searchParams.toString()}`;
+};
