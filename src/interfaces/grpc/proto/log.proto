@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package log_collector;
+
+import "google/protobuf/timestamp.proto";
+
+service LogCollector {
+    rpc SendLogs (stream LogEntry) returns (LogResponse);
+}
+
+enum LogLevel {
+    INFO = 0;
+    WARN = 1;
+    ERROR = 2;
+}
+
+message LogEntry {
+    google.protobuf.Timestamp timestamp = 1;
+
+    LogLevel level = 2;
+
+    string service = 3;
+
+    string message = 4;
+}
+
+message LogResponse {
+    bool success = 1;
+
+    string error_message = 3;
+}

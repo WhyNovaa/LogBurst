@@ -3,6 +3,7 @@ FROM rust:1.91 as builder
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    protobuf-compiler \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app

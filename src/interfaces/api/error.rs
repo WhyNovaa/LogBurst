@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use std::fmt::Display;
 use thiserror::Error;
 use tokio_postgres::Error;
 
@@ -111,7 +112,7 @@ impl<T> IntoApiError for Option<T> {
     }
 }
 
-impl<T, E> IntoApiError for Result<T, E> {
+impl<T, E: Display> IntoApiError for Result<T, E> {
     type Ok = T;
 
     fn to_api_result(
@@ -135,7 +136,10 @@ impl<T, E> IntoApiError for Result<T, E> {
     fn internal(self) -> ApiResult<<Self as IntoApiError>::Ok> {
         match self {
             Ok(v) => Ok(v),
-            Err(_) => Err(ApiError::internal()),
+            Err(e) => {
+                tracing::error!("internal error {}", e);
+                Err(ApiError::internal())
+            }
         }
     }
 

@@ -37,10 +37,17 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT}:8080"
+      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "${GRPC_PORT}:${GRPC_PORT}"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       - pg
       - clickhouse
-    
+    volumes:
+      - ./keys.toml:/usr/local/bin/keys.toml:ro
+
 volumes:
   clickhouse-data:
