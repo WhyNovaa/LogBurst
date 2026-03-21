@@ -1,6 +1,6 @@
 use crate::config::rest::ServerConfig;
 use crate::interfaces::api::middlewares::auth::{jwt_guard, JwtState};
-use crate::interfaces::api::middlewares::hmac::HmacState;
+use crate::interfaces::api::middlewares::hmac::{hmac_guard, HmacState};
 use crate::interfaces::api::v1::add_log::add_log;
 use crate::interfaces::api::v1::auth::login;
 use crate::interfaces::api::AppState;
@@ -20,8 +20,9 @@ pub fn routes(cfg: ServerConfig, key_store: Arc<KeyStore>) -> Router<AppState> {
         secret_key: cfg.secret_key.clone(),
     };
 
-    let hmac_protection = Router::new().route("/logs", post(add_log));
-    //.layer(middleware::from_fn_with_state(hmac_state, hmac_guard));
+    let hmac_protection = Router::new()
+        .route("/logs", post(add_log))
+        .layer(middleware::from_fn_with_state(hmac_state, hmac_guard));
 
     let auth = Router::new()
         .route("/auth", post(login))

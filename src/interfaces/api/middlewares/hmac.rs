@@ -6,7 +6,10 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use serde_json::Value;
 use std::sync::Arc;
+
+const LOG_SECS_TO_PROCEED: u64 = 120;
 
 #[derive(Clone)]
 pub struct HmacState {
@@ -26,7 +29,6 @@ impl HmacState {
     }
 }
 
-// todo add time validation
 pub async fn hmac_guard(
     State(hmac): State<HmacState>,
     req: Request<Body>,
@@ -55,6 +57,23 @@ pub async fn hmac_guard(
                 service_id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
 
             if !hmac.validate_signature(&service_id_parsed, &body_bytes, signature) {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+
+            let jsn: Value =
+                serde_json::from_slice(&body_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+            let timestamp = jsn
+                .get("timestamp")
+                .and_then(|v| v.as_u64())
+                .ok_or(StatusCode::BAD_REQUEST)?;
+
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .as_secs();
+
+            if timestamp + LOG_SECS_TO_PROCEED < now {
                 return Err(StatusCode::UNAUTHORIZED);
             }
 
