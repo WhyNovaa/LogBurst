@@ -46,7 +46,7 @@ impl KeyStore {
 
             if key_bytes.len() != 32 {
                 return Err(anyhow!(
-                    "Key for service '{}' has invalid length {}, expected 32",
+                    "Key for service '{}' has invalid length {}, expected 32 bytes len",
                     k,
                     key_bytes.len()
                 ));

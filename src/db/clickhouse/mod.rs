@@ -12,7 +12,6 @@ pub mod structs;
 const CHANNEL_SIZE: usize = 200_000;
 const LIVE_CHANNEL_SIZE: usize = 15;
 const INSERTER_MAX_ROWS: u64 = 50_000;
-const INSERTER_MAX_BYTES: u64 = 10 * 1024 * 1024;
 const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 pub struct ClickHouse {

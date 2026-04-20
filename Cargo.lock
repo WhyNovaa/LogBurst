@@ -25,6 +25,7 @@ dependencies = [
  "rand 0.10.0",
  "serde",
  "serde_json",
+ "subtle",
  "thiserror 2.0.17",
  "time",
  "tokio",

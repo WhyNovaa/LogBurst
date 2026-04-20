@@ -49,6 +49,7 @@ prost-types = "0.13.5"
 # crypto
 argon2 = { version = "0.6.0-pre.1", features = ["getrandom"] }
 blake3 = "1.8.3"
+subtle = "2.6.1"
 
 # other
 kanal = { version = "0.1.1", features = ["async"] }

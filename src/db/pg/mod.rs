@@ -1,8 +1,7 @@
 use crate::config::postgres::PostgresConfig;
 use crate::db::pg::structs::User;
-use deadpool_postgres::{GenericClient, Manager, ManagerConfig, Pool, PoolError, RecyclingMethod};
-use futures::TryFutureExt;
-use tokio_postgres::{Error, NoTls};
+use deadpool_postgres::{GenericClient, Manager, ManagerConfig, Pool, RecyclingMethod};
+use tokio_postgres::NoTls;
 
 pub mod structs;
 
@@ -29,7 +28,10 @@ impl Postgres {
         self.pool.get().await
     }
 
-    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, anyhow::Error> {
+    pub async fn get_user_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<User>, anyhow::Error> {
         let req = "SELECT * FROM users WHERE username = $1";
 
         let res = self.client().await?.query_opt(req, &[&username]).await?;
