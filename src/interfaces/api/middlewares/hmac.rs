@@ -68,7 +68,7 @@ pub async fn hmac_guard(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .as_secs();
     if timestamp + LOG_SECS_TO_PROCEED < now {
-        //return Err(StatusCode::UNAUTHORIZED);
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
     const MAX_BODY_SIZE: usize = 1024 * 1024;
