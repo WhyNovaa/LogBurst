@@ -1,10 +1,10 @@
 use crate::interfaces::grpc::log_proto::{LogEntry, LogLevel};
 use anyhow::anyhow;
 use clickhouse::Row;
-use prost_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use time::OffsetDateTime;
+use tonic::Status;
 use validator::{Validate, ValidationError};
 
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, Row)]
@@ -59,25 +59,26 @@ impl TryFrom<serde_json::Value> for Log {
     }
 }
 
-impl From<LogEntry> for Log {
-    fn from(value: LogEntry) -> Self {
-        let proto_ts: Option<Timestamp> = value.timestamp;
+impl TryFrom<LogEntry> for Log {
+    type Error = tonic::Status;
 
-        let timestamp = proto_ts
-            .and_then(|ts| {
-                OffsetDateTime::from_unix_timestamp(ts.seconds)
-                    .ok()
-                    .map(|odt| odt.replace_nanosecond(ts.nanos as u32).unwrap_or(odt))
-            })
-            .unwrap_or_else(OffsetDateTime::now_utc);
+    fn try_from(value: LogEntry) -> Result<Self, Self::Error> {
+        let proto_ts = value
+            .timestamp
+            .ok_or_else(|| tonic::Status::invalid_argument("missing timestamp in log"))?;
+        let nanos = u32::try_from(proto_ts.nanos)
+            .map_err(|_| Status::invalid_argument("wrong timestamp"))?;
+        let timestamp = OffsetDateTime::from_unix_timestamp(proto_ts.seconds)
+            .and_then(|odt| odt.replace_nanosecond(nanos))
+            .map_err(|_| Status::invalid_argument("wrong timestamp"))?;
 
-        Self {
+        Ok(Self {
             timestamp,
             level: value.level().into(),
             service: value.service,
             message: value.message,
             raw_data: "".to_string(),
-        }
+        })
     }
 }
 

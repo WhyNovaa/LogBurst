@@ -5,7 +5,7 @@ package log_collector;
 import "google/protobuf/timestamp.proto";
 
 service LogCollector {
-    rpc SendLogs (stream LogEntry) returns (LogResponse);
+    rpc SendLogs (stream SignedLogEntry) returns (LogResponse);
 }
 
 enum LogLevel {
@@ -22,6 +22,16 @@ message LogEntry {
     string service = 3;
 
     string message = 4;
+}
+
+message SignedLogEntry {
+    LogEntry log = 1;
+
+    string service_id = 2;
+
+    int64 signed_at = 3;
+
+    string signature = 4;
 }
 
 message LogResponse {

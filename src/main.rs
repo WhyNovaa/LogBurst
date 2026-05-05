@@ -7,7 +7,7 @@ use crate::server::Server;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::{error, info};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod db;
@@ -52,12 +52,12 @@ async fn main() -> anyhow::Result<()> {
         cfg.rest_cfg.clone(),
         log_sender.clone(),
         live_log_receiver,
-        key_store,
+        Arc::clone(&key_store),
     ));
 
     // gRPC
     supervisor.spawn(run_grpc_server(
-        Arc::clone(&server),
+        Arc::clone(&key_store),
         cfg.grpc_config.clone(),
         log_sender,
         server.token.clone(),
