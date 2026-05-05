@@ -20,7 +20,6 @@ pub async fn update_key_store(
                 break;
             }
         }
-        tokio::time::sleep(KEYS_UPDATE_TIME).await;
 
         match KeyStore::load() {
             Ok(keys) => {

@@ -80,16 +80,16 @@ pub async fn hmac_guard(
     let method = parts.method.as_str();
     let mut payload_to_sign = Vec::new();
 
-    payload_to_sign.extend_from_slice(timestamp_str.as_bytes());
+    payload_to_sign.extend_from_slice(timestamp.to_be_bytes().as_slice());
     payload_to_sign.extend_from_slice(b"\n");
     payload_to_sign.extend_from_slice(method.as_bytes());
     payload_to_sign.extend_from_slice(b"\n");
     payload_to_sign.extend_from_slice(body_bytes.as_ref());
 
-    dbg!(String::from_utf8(payload_to_sign).map_err(|_| StatusCode::UNAUTHORIZED)?);
+    dbg!(str::from_utf8(&payload_to_sign).map_err(|_| StatusCode::UNAUTHORIZED)?);
     let service_id_parsed: ServiceId = service_id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    if !hmac.validate_signature(&service_id_parsed, &body_bytes, signature) {
+    if !hmac.validate_signature(&service_id_parsed, &payload_to_sign, signature) {
         return Err(StatusCode::UNAUTHORIZED);
     }
 

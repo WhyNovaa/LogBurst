@@ -10,6 +10,8 @@ WORKDIR /usr/src/app
 
 COPY . .
 
+RUN test -f keys.toml || (echo "❌ keys.toml is required" && exit 1)
+
 RUN cargo build --release
 
 
