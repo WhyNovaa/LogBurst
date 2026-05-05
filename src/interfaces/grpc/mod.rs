@@ -8,6 +8,7 @@ use log_proto::{
 
 use std::sync::Arc;
 use time::OffsetDateTime;
+use tokio_util::sync::CancellationToken;
 use tonic::codegen::tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming};
 
@@ -77,6 +78,7 @@ pub async fn run_grpc_server(
     server: Arc<Server>,
     grpc_config: GrpcConfig,
     log_sender: kanal::AsyncSender<Log>,
+    token: CancellationToken,
 ) -> Result<(), anyhow::Error> {
     let log_service = LogCollectorService {
         server,
@@ -91,6 +93,6 @@ pub async fn run_grpc_server(
 
     Ok(tonic::transport::Server::builder()
         .add_service(LogCollectorServer::new(log_service))
-        .serve(addr)
+        .serve_with_shutdown(addr, token.cancelled())
         .await?)
 }

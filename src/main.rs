@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
         Arc::clone(&server),
         cfg.grpc_config.clone(),
         log_sender,
+        server.token.clone(),
     ));
 
     while let Some(res) = supervisor.join_next().await {
