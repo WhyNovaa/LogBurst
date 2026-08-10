@@ -60,6 +60,8 @@ The current implementation already includes:
 - JWT-protected analytics endpoints,
 - server-sent events for live and historical log streaming,
 - a dashboard with overview metrics, interval charts, live logs, and filtered search.
+<img width="1604" height="815" alt="image" src="https://github.com/user-attachments/assets/b0f2eb90-dc34-45d2-96f8-9c3c9b3c344f" />
+<img width="1608" height="817" alt="image" src="https://github.com/user-attachments/assets/efd9321a-35b6-43f9-9a08-690a2da8cdfa" />
 
 ## Why LogBurst
 
