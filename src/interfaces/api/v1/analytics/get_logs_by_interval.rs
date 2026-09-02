@@ -12,7 +12,7 @@ pub async fn get_logs_by_interval(
     State(server): State<Arc<Server>>,
     Query(query): Query<dto::get_logs_by_interval::Filters>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>>> {
-    let (tx, rx) = kanal::bounded_async::<Log>(100);
+    let (tx, rx) = async_channel::bounded::<Log>(100);
 
     // todo remove tracing
     tokio::spawn(async move {

@@ -1,7 +1,6 @@
 use crate::config::clickhouse::ClickhouseConfig;
 use crate::db::clickhouse::structs::{LevelsCountBucket, LevelsCountIntervalBucket, Log};
 use clickhouse::Client;
-use kanal::AsyncSender;
 use time::OffsetDateTime;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
@@ -38,7 +37,7 @@ impl ClickHouse {
         service_opt: Option<String>,
         level_opt: Option<String>,
         limit: u32,
-        tx: kanal::AsyncSender<Log>,
+        tx: async_channel::Sender<Log>,
     ) -> anyhow::Result<()> {
         let mut req = r#"
             SELECT
@@ -150,16 +149,18 @@ impl ClickHouse {
     pub fn start_receiving(
         &self,
         token: CancellationToken,
-    ) -> anyhow::Result<(AsyncSender<Log>, tokio::sync::broadcast::Sender<Log>)> {
+    ) -> anyhow::Result<(
+        async_channel::Sender<Log>,
+        tokio::sync::broadcast::Sender<Log>,
+    )> {
         let mut inserter = self.client.inserter::<Log>("logs")?;
 
-        let (tx, rx) = kanal::bounded_async::<Log>(CHANNEL_SIZE);
+        let (tx, rx) = async_channel::bounded::<Log>(CHANNEL_SIZE);
         let (live_tx, _) = tokio::sync::broadcast::channel::<Log>(LIVE_CHANNEL_SIZE);
         let mut tick_interval = interval(FLUSH_INTERVAL);
         tokio::spawn({
             let live_tx = live_tx.clone();
             async move {
-                let mut pending_count = 0;
                 loop {
                     tokio::select! {
                         msg = rx.recv() => {
@@ -169,7 +170,6 @@ impl ClickHouse {
                                         error!("Error serializing log: {}", e);
                                         continue;
                                     }
-                                    pending_count += 1;
 
                                     if rand::random_range(1..=100) == 100 {
                                         if let Err(e) = live_tx.send(log) {
@@ -177,12 +177,13 @@ impl ClickHouse {
                                         }
                                     }
 
-                                    if pending_count >= INSERTER_MAX_ROWS {
-                                        info!("Batch limit reached, committing {} logs...", pending_count);
+                                    let pending_amount = inserter.pending().rows;
+
+                                    if pending_amount >= INSERTER_MAX_ROWS {
+                                        info!("Batch limit reached, committing {} logs...", pending_amount);
                                         match inserter.force_commit().await {
                                             Ok(res) => {
                                                 info!("{} rows were written", res.rows);
-                                                pending_count = 0;
                                                 tick_interval.reset();
                                             }
                                             Err(e) => error!("Failed to commit batch: {}", e),
@@ -191,17 +192,19 @@ impl ClickHouse {
                                 }
                                 Err(e) => {
                                     error!("Failed to receive log: {}", e);
+                                    break;
                                 }
                             }
                         }
 
                         _ = tick_interval.tick() => {
-                            if pending_count > 0 {
-                                info!("Time interval, committing {} logs...", pending_count);
+                            let pending_amount = inserter.pending().rows;
+
+                            if pending_amount > 0 {
+                                info!("Time interval, committing {} logs...", pending_amount);
                                 match inserter.force_commit().await {
                                     Ok(res) => {
                                         info!("{} rows were written", res.rows);
-                                        pending_count = 0;
                                         tick_interval.reset();
                                     }
                                     Err(e) => error!("Failed to commit by timer: {}", e),
@@ -219,7 +222,7 @@ impl ClickHouse {
                                     info!("Error writing remaining log: {}", e);
                                 }
                             }
-                            if let Err(e) = inserter.commit().await {
+                            if let Err(e) = inserter.force_commit().await {
                                 error!("Failed to commit logs on shutdown: {}", e)
                             }
 

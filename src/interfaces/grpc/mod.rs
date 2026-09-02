@@ -2,6 +2,7 @@ use crate::config::grpc::GrpcConfig;
 use crate::db::clickhouse::structs::Log;
 use crate::interfaces::grpc::log_proto::SignedLogEntry;
 use crate::security::keystore::KeyStore;
+use chrono::Utc;
 use log_proto::{
     log_collector_server::{LogCollector, LogCollectorServer},
     LogResponse,
@@ -11,13 +12,15 @@ use tokio_util::sync::CancellationToken;
 use tonic::codegen::tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming};
 
+const LOG_SECS_TO_PROCEED: i64 = 120;
+
 pub mod log_proto {
     tonic::include_proto!("log_collector");
 }
 
 pub struct LogCollectorService {
     key_store: Arc<KeyStore>,
-    sender: kanal::AsyncSender<Log>,
+    sender: async_channel::Sender<Log>,
 }
 
 #[tonic::async_trait]
@@ -67,7 +70,7 @@ impl LogCollector for LogCollectorService {
 pub async fn run_grpc_server(
     key_store: Arc<KeyStore>,
     grpc_config: GrpcConfig,
-    log_sender: kanal::AsyncSender<Log>,
+    log_sender: async_channel::Sender<Log>,
     token: CancellationToken,
 ) -> Result<(), anyhow::Error> {
     let log_service = LogCollectorService {
@@ -99,6 +102,10 @@ pub async fn verify_signed_log(
         .timestamp
         .as_ref()
         .ok_or_else(|| Status::invalid_argument("missing timestamp in log"))?;
+
+    if timestamp.seconds > Utc::now().timestamp() + LOG_SECS_TO_PROCEED {
+        return Err(Status::unauthenticated("message is too old"));
+    }
 
     let key = key_store
         .get(&service_id)

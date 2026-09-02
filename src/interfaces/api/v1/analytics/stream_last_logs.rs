@@ -10,7 +10,7 @@ use tracing::log::info;
 pub async fn stream_last_logs(
     State(live_sender): State<tokio::sync::broadcast::Sender<Log>>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>>> {
-    let (tx, rx) = kanal::bounded_async::<Log>(15);
+    let (tx, rx) = async_channel::bounded::<Log>(15);
 
     let mut live_rx = live_sender.subscribe();
     tokio::spawn(async move {
