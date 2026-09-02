@@ -23,9 +23,7 @@ impl ClickHouse {
             .with_url(cfg.url())
             .with_user(cfg.user)
             .with_password(cfg.password)
-            .with_option("max_execution_time", "60")
-            .with_option("async_insert", "1")
-            .with_option("wait_for_async_insert", "1");
+            .with_option("max_execution_time", "60");
 
         Self { client }
     }
