@@ -17,6 +17,7 @@ config = { path = "crates/config" }
 error = { path = "crates/error" }
 proto = { path = "crates/proto" }
 domain = { path = "crates/domain" }
+storage = { path = "crates/storage" }
 # rt
 tokio = { version = "1.44.2", features = ["full"] }
 tokio-util = "0.7.14"
