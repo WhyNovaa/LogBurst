@@ -1,0 +1,13 @@
+[package]
+name = "config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenvy = { workspace = true }
+envy = { workspace = true }
+serde = { workspace = true }
+tokio-postgres = { workspace = true }
+rdkafka = { workspace = true }
+anyhow = { workspace = true }
+clickhouse = { workspace = true }

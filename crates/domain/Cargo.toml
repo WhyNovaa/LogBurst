@@ -1,0 +1,14 @@
+[package]
+name = "domain"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+clickhouse = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tonic = { workspace = true }
+validator = { workspace = true }
+time = { workspace = true }
+proto = { workspace = true }

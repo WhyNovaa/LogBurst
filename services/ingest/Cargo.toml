@@ -1,0 +1,27 @@
+[package]
+name = "ingest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { workspace = true }
+axum = { workspace = true }
+tonic = { workspace = true }
+serde = { workspace = true }
+config = { workspace = true }
+envy = { workspace = true }
+tracing-subscriber = { workspace = true }
+blake3 = { workspace = true }
+tracing = { workspace = true }
+tokio-util = { workspace = true }
+anyhow = { workspace = true }
+arc-swap = { workspace = true }
+toml = { workspace = true }
+subtle = { workspace = true }
+serde_json = { workspace = true }
+error = { workspace = true }
+domain = { workspace = true }
+proto = { workspace = true }
+chrono = { workspace = true }
+rdkafka = { workspace = true }
+postcard = { workspace = true, features = ["alloc"] }

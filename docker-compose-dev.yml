@@ -1,0 +1,129 @@
+services:
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_LOG_TOPIC: logs
+    volumes:
+      - ./deploy/kafka/init-topics.sh:/init-topics.sh:ro
+    entrypoint: [ "/bin/bash", "/init-topics.sh" ]
+    restart: "no"
+  
+  pg:
+    container_name: pg
+    image: postgres:18.6
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./migrations/pg/up:/docker-entrypoint-initdb.d
+
+  clickhouse-server:
+    container_name: clickhouse-server
+    image: clickhouse/clickhouse-server:26.3
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL",
+              "wget --spider --quiet --timeout=2 \"$${CLICKHOUSE_HOST}\":\"$${CLICKHOUSE_PORT}\"/ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+      memlock:
+        soft: -1
+        hard: -1
+    env_file:
+      - .env
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./migrations/clickhouse/up:/docker-entrypoint-initdb.d
+      - clickhouse_data:/var/lib/clickhouse
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list >/dev/null 2>&1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,
+        EXTERNAL://0.0.0.0:9092,
+        CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,
+        EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
+
+  ingest:
+    container_name: ingest
+    build:
+      context: .
+      target: ingest
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+      - "${GRPC_PORT}:${GRPC_PORT}"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    env_file:
+      - .env
+    volumes:
+      - ./keys.toml:/app/keys.toml:ro
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+      pg:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+
+volumes:
+  kafka_data:
+  clickhouse_data:

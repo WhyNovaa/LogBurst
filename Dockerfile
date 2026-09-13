@@ -1,33 +1,38 @@
-FROM rust:1.91 as builder
+FROM rust:1.91-bookworm AS builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
+    cmake \
     libssl-dev \
+    libcurl4-openssl-dev \
     protobuf-compiler \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/app
-
+WORKDIR /app
 COPY . .
 
-RUN test -f keys.toml || (echo "❌ keys.toml is required" && exit 1)
+RUN cargo build --release \
+    -p ingest \
+    -p writer \
+    -p api
 
-RUN cargo build --release
-
-
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y \
-    libssl3 \
     ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
-ADD https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz .
-RUN tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz
+WORKDIR /app
 
-WORKDIR /usr/local/bin
+FROM runtime AS ingest
+COPY --from=builder /app/target/release/ingest /usr/local/bin/ingest
+ENTRYPOINT ["/usr/local/bin/ingest"]
 
-COPY --from=builder /usr/src/app/target/release/LogBurst .
+FROM runtime AS writer
+COPY --from=builder /app/target/release/writer /usr/local/bin/writer
+ENTRYPOINT ["/usr/local/bin/writer"]
 
-CMD ["dockerize", "-wait", "tcp://pg:5432", "-wait", "tcp://clickhouse-server:8123", "-timeout", "30s", "LogBurst"]
-
+FROM runtime AS api
+COPY --from=builder /app/target/release/api /usr/local/bin/api
+ENTRYPOINT ["/usr/local/bin/api"]
