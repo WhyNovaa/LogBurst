@@ -7,7 +7,6 @@ use axum::{
     response::Response,
 };
 use std::sync::Arc;
-use tracing::info;
 
 const LOG_SECS_TO_PROCEED: u64 = 120;
 
@@ -17,17 +16,13 @@ pub struct HmacState {
 }
 impl HmacState {
     pub fn validate_signature(&self, service_id: &ServiceId, data: &[u8], signature: &str) -> bool {
-        info!("huy");
         let Some(key) = self.key_store.get(service_id) else {
             return false;
         };
 
-        info!("huy1");
         let mut hasher = blake3::Hasher::new_keyed(key.as_ref());
 
         let expected = hasher.update(data).finalize().to_hex();
-
-        dbg!(expected);
 
         Self::const_time_compare_hashes(expected.as_bytes(), signature.as_bytes())
     }
@@ -59,15 +54,11 @@ pub async fn hmac_guard(
         .get("X-TIMESTAMP")
         .and_then(|h| h.to_str().ok());
 
-    info!("a");
-
     let (Some(service_id), Some(signature), Some(timestamp_str)) =
         (service_id_opt, signature_opt, timestamp_opt)
     else {
         return Err(StatusCode::UNAUTHORIZED);
     };
-
-    info!("aa");
 
     let timestamp: u64 = timestamp_str
         .parse()
@@ -80,7 +71,6 @@ pub async fn hmac_guard(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    info!("b");
     const MAX_BODY_SIZE: usize = 1024 * 1024;
 
     let body_bytes = axum::body::to_bytes(body, MAX_BODY_SIZE)
