@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::writer::Writer;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing::{error, info};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod writer;
@@ -31,8 +33,29 @@ async fn main() -> anyhow::Result<()> {
 
     let mut supervisor: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
-    for _ in 0..cfg.kafka.partitions_number {
-        let consumer = cfg.kafka.create_consumer(LOG_GROUP_ID)?;
+    for i in 0..cfg.kafka.partitions_number {
+        let writer = Writer::new(cfg.kafka.clone(), cfg.clickhouse.clone(), token.clone()).await?;
+
+        supervisor.spawn(writer.start_receiving());
+
+        info!("Writer worker {i} started successfully");
+    }
+
+    info!("All writer workers started successfully");
+
+    while let Some(res) = supervisor.join_next().await {
+        match res {
+            Ok(Ok(())) => {
+                info!("Server shutdown");
+            }
+            Ok(Err(err)) => {
+                error!("Caught error: {err}");
+            }
+            Err(join_err) => {
+                error!("Join error: {join_err}");
+            }
+        }
+        token.cancel();
     }
 
     Ok(())
