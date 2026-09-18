@@ -1183,6 +1183,7 @@ dependencies = [
  "rdkafka",
  "serde",
  "serde_json",
+ "service-utils",
  "subtle",
  "tokio",
  "tokio-util",
@@ -2030,6 +2031,16 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "service-utils"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3091,6 +3102,7 @@ dependencies = [
  "envy",
  "postcard",
  "rdkafka",
+ "service-utils",
  "storage",
  "tokio",
  "tokio-util",
