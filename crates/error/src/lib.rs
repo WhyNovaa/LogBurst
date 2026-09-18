@@ -2,7 +2,6 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use std::fmt::Display;
 use thiserror::Error;
-use tokio_postgres::Error;
 
 #[derive(Error, Debug)]
 #[error("{error}")]
@@ -159,7 +158,7 @@ impl<T, E: Display> IntoApiError for Result<T, E> {
 }
 
 impl From<tokio_postgres::Error> for ApiError {
-    fn from(_value: Error) -> Self {
+    fn from(_value: tokio_postgres::Error) -> Self {
         ApiError::internal()
     }
 }

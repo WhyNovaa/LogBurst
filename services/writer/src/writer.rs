@@ -1,4 +1,4 @@
-use crate::LOG_GROUP_ID;
+use crate::{LOG_GROUP_ID, LOG_TOPIC};
 use anyhow::bail;
 use config::clickhouse::ClickhouseConfig;
 use config::kafka::KafkaConfig;
@@ -33,7 +33,9 @@ impl Writer {
         })
     }
 
-    pub async fn start_receiving(self) -> anyhow::Result<()> {
+    pub async fn start_writing(self) -> anyhow::Result<()> {
+        self.consumer.subscribe(&[LOG_TOPIC])?;
+
         let mut inserter = self
             .client
             .inserter::<storage::clickhouse::ClickhouseLog>("logs")?;

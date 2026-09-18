@@ -1,11 +1,11 @@
 mod add_log;
 
-use crate::interfaces::middlewares::hmac::{hmac_guard, HmacState};
-use crate::interfaces::v1::add_log::add_log;
 use crate::interfaces::AppState;
+use crate::interfaces::middlewares::hmac::{HmacState, hmac_guard};
+use crate::interfaces::v1::add_log::add_log;
 use crate::security::keystore::KeyStore;
 use axum::middleware;
-use axum::routing::{post, Router};
+use axum::routing::{Router, post};
 use std::sync::Arc;
 
 pub fn routes(key_store: Arc<KeyStore>) -> Router<AppState> {

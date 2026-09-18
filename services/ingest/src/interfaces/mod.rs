@@ -1,8 +1,8 @@
 use crate::interfaces::grpc::LogCollectorService;
 use crate::security::keystore::KeyStore;
 use crate::server::Server;
-use axum::extract::FromRef;
 use axum::Router;
+use axum::extract::FromRef;
 use config::grpc::GrpcConfig;
 use config::http::HttpConfig;
 use proto::log_proto::log_collector_server::LogCollectorServer;

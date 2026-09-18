@@ -24,6 +24,7 @@ domain = { workspace = true }
 proto = { workspace = true }
 chrono = { workspace = true }
 rdkafka = { workspace = true }
-postcard = { workspace = true, features = ["alloc"] }
-
+postcard = { workspace = true }
+deadpool-postgres = { workspace = true }
+tokio-postgres = { workspace = true }
 service-utils = { workspace = true }

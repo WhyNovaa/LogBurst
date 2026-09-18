@@ -1,12 +1,12 @@
 use crate::config::rest::ServerConfig;
-use crate::interfaces::api::middlewares::auth::{jwt_guard, JwtState};
-use crate::interfaces::api::middlewares::hmac::{hmac_guard, HmacState};
+use crate::interfaces::api::AppState;
+use crate::interfaces::api::middlewares::auth::{JwtState, jwt_guard};
+use crate::interfaces::api::middlewares::hmac::{HmacState, hmac_guard};
 use crate::interfaces::api::v1::add_log::add_log;
 use crate::interfaces::api::v1::auth::login;
-use crate::interfaces::api::AppState;
 use crate::security::keystore::KeyStore;
 use axum::routing::post;
-use axum::{middleware, Extension, Router};
+use axum::{Extension, Router, middleware};
 use std::sync::Arc;
 
 mod add_log;

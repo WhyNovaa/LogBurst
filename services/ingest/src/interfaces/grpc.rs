@@ -1,5 +1,5 @@
-use crate::security::keystore::KeyStore;
 use crate::LOG_TOPIC;
+use crate::security::keystore::KeyStore;
 use domain::log::Log;
 use proto::log_proto::log_collector_server::LogCollector;
 use proto::log_proto::{LogResponse, SignedLogEntry};
@@ -100,7 +100,7 @@ pub async fn verify_signed_log(
         log_entry.message
     );
 
-    let mut hasher = blake3::Hasher::new_keyed(key.as_ref());
+    let mut hasher = blake3::Hasher::new_keyed(&key);
 
     let signed_payload = hasher.update(payload.as_bytes()).finalize().to_hex();
 

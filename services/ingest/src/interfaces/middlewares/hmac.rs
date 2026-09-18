@@ -20,7 +20,7 @@ impl HmacState {
             return false;
         };
 
-        let mut hasher = blake3::Hasher::new_keyed(key.as_ref());
+        let mut hasher = blake3::Hasher::new_keyed(&key);
 
         let expected = hasher.update(data).finalize().to_hex();
 

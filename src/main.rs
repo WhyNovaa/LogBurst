@@ -7,7 +7,7 @@ use crate::server::Server;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::{error, info};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod db;

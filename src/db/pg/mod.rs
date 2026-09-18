@@ -32,9 +32,9 @@ impl Postgres {
         &self,
         username: &str,
     ) -> Result<Option<User>, anyhow::Error> {
-        let req = "SELECT * FROM users WHERE username = $1";
+        const QUERY: &str = "SELECT * FROM users WHERE username = $1";
 
-        let res = self.client().await?.query_opt(req, &[&username]).await?;
+        let res = self.client().await?.query_opt(QUERY, &[&username]).await?;
 
         Ok(res.map(User::from))
     }

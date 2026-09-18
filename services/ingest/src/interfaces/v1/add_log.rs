@@ -1,8 +1,8 @@
-use crate::server::Server;
 use crate::LOG_TOPIC;
+use crate::server::Server;
+use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::Json;
 use domain::log::Log;
 use error::{ApiResult, IntoApiError};
 use rdkafka::producer::FutureRecord;

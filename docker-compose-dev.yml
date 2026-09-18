@@ -4,6 +4,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       KAFKA_LOG_TOPIC: logs
     volumes:
@@ -123,6 +125,20 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  writer:
+    container_name: writer
+    build:
+      context: .
+      target: writer
+    env_file:
+      - .env
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+      pg:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
 volumes:
   kafka_data:

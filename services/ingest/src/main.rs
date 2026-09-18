@@ -2,11 +2,14 @@ use crate::interfaces::{run_grpc_server, run_rest};
 use crate::security::keystore::KeyStore;
 use crate::security::update_key_store;
 use crate::server::Server;
+use ::config::postgres::PostgresConfig;
+use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use std::sync::Arc;
 use tokio::task::JoinSet;
+use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod interfaces;
@@ -25,7 +28,10 @@ async fn main() -> anyhow::Result<()> {
 
     let server = Arc::new(Server::new(config.kafka, token.clone())?);
 
-    let key_store = Arc::new(KeyStore::new(KeyStore::load()?));
+    let pool = connect_postgres(config.postgres).await?;
+
+    let key_store = Arc::new(KeyStore::new(pool));
+
     tokio::spawn(service_utils::shutdown::wait_for_shutdown_signal(
         token.clone(),
     ));
@@ -67,4 +73,18 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn connect_postgres(pg_config: PostgresConfig) -> anyhow::Result<deadpool_postgres::Pool> {
+    let mgr = Manager::from_config(
+        pg_config.into(),
+        NoTls,
+        ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        },
+    );
+
+    let pool = Pool::builder(mgr).max_size(2).build()?;
+
+    Ok(pool)
 }

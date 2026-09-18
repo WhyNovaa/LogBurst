@@ -4,8 +4,8 @@ use crate::interfaces::grpc::log_proto::SignedLogEntry;
 use crate::security::keystore::KeyStore;
 use chrono::Utc;
 use log_proto::{
-    log_collector_server::{LogCollector, LogCollectorServer},
     LogResponse,
+    log_collector_server::{LogCollector, LogCollectorServer},
 };
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;

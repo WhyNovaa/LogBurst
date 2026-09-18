@@ -16,3 +16,4 @@ tokio-util = { workspace = true }
 rdkafka = { workspace = true }
 storage = { workspace = true }
 postcard = { workspace = true }
+service-utils = { workspace = true }

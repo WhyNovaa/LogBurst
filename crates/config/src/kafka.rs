@@ -1,13 +1,12 @@
 use dotenvy::dotenv;
+use rdkafka::ClientConfig;
 use rdkafka::consumer::StreamConsumer;
 use rdkafka::producer::FutureProducer;
-use rdkafka::ClientConfig;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct KafkaConfig {
     pub brokers: String,
-    pub partitions_number: u8,
 }
 
 impl KafkaConfig {
