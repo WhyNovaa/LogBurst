@@ -1,0 +1,17 @@
+[package]
+name = "service-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+domain = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+proto = { workspace = true }
+rdkafka = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing = { workspace = true }
