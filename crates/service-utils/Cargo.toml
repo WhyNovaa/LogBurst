@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 domain = { workspace = true }
-postcard = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 proto = { workspace = true }

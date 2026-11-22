@@ -54,8 +54,7 @@ pub fn decode(message: &impl Message) -> anyhow::Result<Log> {
         Some(header) if header.value == Some(PROTOBUF_CONTENT_TYPE.as_bytes()) => {
             decode_protobuf(payload)
         }
-        // Before the Protobuf switch, producers sent Postcard records without headers.
-        None => postcard::from_bytes(payload).context("Invalid Postcard Kafka log"),
+        None => bail!("Kafka log has no content-type header"),
         Some(_) => bail!("Unsupported Kafka log content type"),
     }
 }
@@ -122,9 +121,10 @@ mod tests {
     }
 
     #[test]
-    fn reads_postcard_records_without_headers() {
-        let payload = postcard::to_allocvec(&sample_log()).unwrap();
-        assert_log_fields(decode(&message(payload, None)).unwrap());
+    fn rejects_records_without_content_type() {
+        let (payload, _) = encode(sample_log());
+        let error = decode(&message(payload, None)).unwrap_err();
+        assert_eq!(error.to_string(), "Kafka log has no content-type header");
     }
 
     #[test]
