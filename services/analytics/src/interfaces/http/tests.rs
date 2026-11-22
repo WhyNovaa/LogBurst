@@ -215,6 +215,7 @@ async fn historical_logs_preserve_filters_and_limit() {
         .unwrap()
         .unwrap();
     task.abort();
+    assert!(query.contains("FROM logs FINAL"), "{query}");
     assert!(
         query.contains("timestamp >= toDateTime64(1792540800, 3, 'UTC')"),
         "{query}"

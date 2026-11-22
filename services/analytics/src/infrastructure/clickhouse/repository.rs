@@ -26,7 +26,7 @@ impl ClickhouseAnalyticsRepository {
     ) -> Result<RowCursor<ClickhouseLog>> {
         let mut sql = r#"
             SELECT ?fields
-            FROM logs
+            FROM logs FINAL
             WHERE
                 timestamp >= toDateTime64(?, 3, 'UTC') AND
                 timestamp <= toDateTime64(?, 3, 'UTC')"#
@@ -62,7 +62,7 @@ impl ClickhouseAnalyticsRepository {
                 countIf(level = 'error') as error_count,
                 countIf(level = 'warn') as warn_count,
                 countIf(level = 'info') as info_count
-            FROM logs"#;
+            FROM logs FINAL"#;
 
         Ok(self
             .client
@@ -87,7 +87,7 @@ impl ClickhouseAnalyticsRepository {
                 countIf(level = 'error') AS error_count,
                 countIf(level = 'warn') AS warn_count,
                 countIf(level = 'info') AS info_count
-            FROM logs
+            FROM logs FINAL
             WHERE
                 timestamp >= start_time
                 AND timestamp <=  end_time
