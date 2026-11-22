@@ -9,14 +9,11 @@ use tokio::task::JoinSet;
 use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, fmt};
 
 mod config;
 mod interfaces;
 mod security;
 mod server;
-
-pub const LOG_TOPIC: &str = "logs";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

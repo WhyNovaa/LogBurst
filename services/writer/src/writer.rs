@@ -1,10 +1,9 @@
-use crate::{LOG_GROUP_ID, LOG_TOPIC};
-use anyhow::bail;
+use crate::LOG_GROUP_ID;
 use config::clickhouse::ClickhouseConfig;
 use config::kafka::KafkaConfig;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
-use rdkafka::message::BorrowedMessage;
 use rdkafka::{Message, Offset, TopicPartitionList};
+use service_utils::kafka_log::{self, LOG_TOPIC};
 use std::collections::HashMap;
 use storage::clickhouse::ClickhouseLog;
 use tokio::time::interval;
@@ -49,10 +48,10 @@ impl Writer {
                 msg = self.consumer.recv() => {
                     match msg {
                         Ok(msg) => {
-                            let db_log = match process_borrowed_message(&msg) {
+                            let db_log = match process_message(&msg) {
                                 Ok(log) => log,
                                 Err(e) => {
-                                    error!("Error while receiving kafka msg: {e}");
+                                    error!("Error while receiving kafka msg: {e:#}");
                                     continue;
                                 }
                             };
@@ -138,21 +137,13 @@ impl Writer {
     }
 }
 
-pub fn process_borrowed_message(msg: &BorrowedMessage) -> anyhow::Result<ClickhouseLog> {
-    let Some(bytes) = msg.payload() else {
-        bail!("No payload in kafka message");
-    };
-
-    let log = match postcard::from_bytes::<domain::Log>(bytes) {
-        Ok(log) => log,
-        Err(e) => {
-            bail!("Failed to deserialize kafka message: {e}");
-        }
-    };
-
-    let db_log = ClickhouseLog::from(log);
-
-    Ok(db_log)
+pub fn process_message(msg: &impl Message) -> anyhow::Result<ClickhouseLog> {
+    let log = kafka_log::decode(msg)?;
+    Ok(ClickhouseLog::from_kafka(
+        log,
+        msg.partition(),
+        msg.offset(),
+    ))
 }
 
 pub fn commit_kafka_offsets(
@@ -172,4 +163,120 @@ pub fn commit_kafka_offsets(
     consumer.commit(&list, CommitMode::Async)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::process_message;
+    use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+    use service_utils::kafka_log::{self, LOG_TOPIC};
+    use std::time::SystemTime;
+    use storage::clickhouse::ClickhouseLog;
+
+    const OFFSET: i64 = 1_i64 << 40;
+
+    fn payload() -> (Vec<u8>, OwnedHeaders) {
+        kafka_log::encode(domain::Log {
+            timestamp: SystemTime::now().into(),
+            level: "info".into(),
+            service: "writer-test".into(),
+            message: "same event payload".into(),
+            raw_data: "{}".into(),
+        })
+    }
+
+    fn message(payload: &(Vec<u8>, OwnedHeaders), partition: i32, offset: i64) -> OwnedMessage {
+        let (bytes, headers) = payload;
+        OwnedMessage::new(
+            Some(bytes.clone()),
+            None,
+            LOG_TOPIC.into(),
+            Timestamp::NotAvailable,
+            partition,
+            offset,
+            Some(headers.clone()),
+        )
+    }
+
+    #[test]
+    fn kafka_replays_keep_the_key_and_distinct_records_do_not_collide() {
+        let payload = payload();
+        let original = process_message(&message(&payload, 3, OFFSET)).unwrap();
+        let replay = process_message(&message(&payload, 3, OFFSET)).unwrap();
+        let next_offset = process_message(&message(&payload, 3, OFFSET + 1)).unwrap();
+        let other_partition = process_message(&message(&payload, 4, OFFSET)).unwrap();
+        let key = |row: &ClickhouseLog| (row.timestamp, row.kafka_partition, row.kafka_offset);
+
+        assert_eq!(original.kafka_partition, 3);
+        assert_eq!(original.kafka_offset, OFFSET);
+        assert_eq!(key(&original), key(&replay));
+        assert_ne!(key(&original), key(&next_offset));
+        assert_ne!(key(&original), key(&other_partition));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires an isolated ClickHouse server at CLICKHOUSE_TEST_URL"]
+    async fn clickhouse_deduplicates_replays_and_preserves_distinct_kafka_records()
+    -> anyhow::Result<()> {
+        let url = std::env::var("CLICKHOUSE_TEST_URL")?;
+        let database = format!(
+            "writer_coordinates_test_{}_{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_nanos()
+        );
+        let admin = clickhouse::Client::default().with_url(url);
+        admin
+            .query(&format!("CREATE DATABASE {database}"))
+            .execute()
+            .await?;
+        let client = admin.clone().with_database(&database);
+
+        let result = async {
+            client
+                .query(include_str!(
+                    "../../../migrations/clickhouse/up/20251201173112_create_logs_table.sql"
+                ))
+                .execute()
+                .await?;
+
+            let payload = payload();
+            let mut inserter = client.inserter::<ClickhouseLog>("logs")?;
+            for (partition, offset) in [(3, OFFSET), (3, OFFSET), (3, OFFSET + 1), (4, OFFSET)] {
+                inserter.write(&process_message(&message(&payload, partition, offset))?)?;
+            }
+            inserter.force_commit().await?;
+
+            let rows = client
+                .query("SELECT ?fields FROM logs FINAL ORDER BY kafka_partition, kafka_offset")
+                .fetch_all::<ClickhouseLog>()
+                .await?;
+            let coordinates = rows
+                .iter()
+                .map(|row| (row.kafka_partition, row.kafka_offset))
+                .collect::<Vec<_>>();
+            anyhow::ensure!(
+                coordinates == [(3, OFFSET), (3, OFFSET + 1), (4, OFFSET)],
+                "unexpected stored coordinates: {coordinates:?}"
+            );
+
+            client.query("OPTIMIZE TABLE logs FINAL").execute().await?;
+            let count = client
+                .query("SELECT count() FROM logs")
+                .fetch_one::<u64>()
+                .await?;
+            anyhow::ensure!(count == 3, "expected three distinct records, got {count}");
+            Ok::<_, anyhow::Error>(())
+        }
+        .await;
+
+        let cleanup = admin
+            .query(&format!("DROP DATABASE {database} SYNC"))
+            .execute()
+            .await;
+        result?;
+        cleanup?;
+        Ok(())
+    }
 }

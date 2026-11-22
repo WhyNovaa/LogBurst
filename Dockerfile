@@ -14,7 +14,7 @@ COPY . .
 RUN cargo build --release \
     -p ingest \
     -p writer \
-    -p api
+    -p analytics
 
 FROM debian:bookworm-slim AS runtime
 
@@ -33,6 +33,6 @@ FROM runtime AS writer
 COPY --from=builder /app/target/release/writer /usr/local/bin/writer
 ENTRYPOINT ["/usr/local/bin/writer"]
 
-FROM runtime AS api
-COPY --from=builder /app/target/release/api /usr/local/bin/api
-ENTRYPOINT ["/usr/local/bin/api"]
+FROM runtime AS analytics
+COPY --from=builder /app/target/release/analytics /usr/local/bin/analytics
+ENTRYPOINT ["/usr/local/bin/analytics"]

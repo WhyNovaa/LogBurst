@@ -1,12 +1,11 @@
-use crate::LOG_TOPIC;
 use crate::server::Server;
 use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
 use domain::log::Log;
 use error::{ApiResult, IntoApiError};
-use rdkafka::producer::FutureRecord;
 use serde_json::Value;
+use service_utils::kafka_log;
 use std::sync::Arc;
 
 pub async fn add_log(
@@ -15,16 +14,7 @@ pub async fn add_log(
 ) -> ApiResult<impl IntoResponse> {
     let log = Log::try_from(payload).bad_request("Wrong log")?;
 
-    // todo replace with smth else
-    let serialized = postcard::to_allocvec(&log).internal()?;
-
-    let record: FutureRecord<(), _> = FutureRecord::to(LOG_TOPIC).payload(serialized.as_slice());
-
-    if let Err((e, _msg)) = server
-        .producer
-        .send(record, std::time::Duration::from_secs(1))
-        .await
-    {
+    if let Err((e, _msg)) = kafka_log::send(&server.producer, log).await {
         tracing::error!("Failed to send KafkaRecord: {e}");
     }
 

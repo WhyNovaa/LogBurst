@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package logburst.kafka.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Payload of records in the logs topic with content-type application/protobuf.
+message KafkaLog {
+    google.protobuf.Timestamp timestamp = 1;
+    string level = 2;
+    string service = 3;
+    string message = 4;
+    string raw_data = 5;
+}

@@ -10,16 +10,20 @@ pub struct ClickhouseLog {
     pub service: String,
     pub message: String,
     pub raw_data: String,
+    pub kafka_partition: i32,
+    pub kafka_offset: i64,
 }
 
-impl From<domain::Log> for ClickhouseLog {
-    fn from(value: domain::Log) -> Self {
+impl ClickhouseLog {
+    pub fn from_kafka(value: domain::Log, partition: i32, offset: i64) -> Self {
         Self {
             timestamp: value.timestamp,
             level: value.level,
             service: value.service,
             message: value.message,
             raw_data: value.raw_data,
+            kafka_partition: partition,
+            kafka_offset: offset,
         }
     }
 }

@@ -4,6 +4,10 @@ pub mod log_proto {
     tonic::include_proto!("log_collector");
 }
 
+pub mod kafka {
+    tonic::include_proto!("logburst.kafka.v1");
+}
+
 impl From<LogLevel> for String {
     fn from(value: LogLevel) -> Self {
         let res = match value {

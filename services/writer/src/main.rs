@@ -1,13 +1,11 @@
 use crate::config::Config;
 use crate::writer::Writer;
-use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 mod config;
 mod writer;
 
-pub const LOG_TOPIC: &str = "logs";
 pub const LOG_GROUP_ID: &str = "writer";
 
 #[tokio::main]

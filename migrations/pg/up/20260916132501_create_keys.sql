@@ -11,5 +11,5 @@ VALUES
 (
  'service-a',
 'qwertyuiopfdasdfghjklelzxcvbnmfd',
- true,
+ true
 );

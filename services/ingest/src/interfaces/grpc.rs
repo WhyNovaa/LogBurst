@@ -1,9 +1,9 @@
-use crate::LOG_TOPIC;
 use crate::security::keystore::KeyStore;
 use domain::log::Log;
 use proto::log_proto::log_collector_server::LogCollector;
 use proto::log_proto::{LogResponse, SignedLogEntry};
-use rdkafka::producer::{FutureProducer, FutureRecord};
+use rdkafka::producer::FutureProducer;
+use service_utils::kafka_log;
 use std::sync::Arc;
 use tonic::codegen::tokio_stream::StreamExt;
 use tonic::{Request, Response, Status, Streaming};
@@ -38,17 +38,7 @@ impl LogCollector for LogCollectorService {
 
             let log = verify_signed_log(&self.key_store, signed_log).await?;
 
-            let serialized = postcard::to_allocvec(&log)
-                .map_err(|_| Status::internal("Failed to serialize log"))?;
-
-            let record: FutureRecord<(), _> =
-                FutureRecord::to(LOG_TOPIC).payload(serialized.as_slice());
-
-            if let Err((e, _msg)) = self
-                .producer
-                .send(record, std::time::Duration::from_secs(1))
-                .await
-            {
+            if let Err((e, _msg)) = kafka_log::send(&self.producer, log).await {
                 tracing::error!("Failed to send KafkaRecord: {e}");
                 error_count += 1;
             }
